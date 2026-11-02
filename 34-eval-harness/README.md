@@ -9,6 +9,9 @@ A 12-task suite for two existing seats, with verifiers, run end to end.
 ## Access
 knowledgebase, agent tools, read access across modules
 
+## Task format
+See [TASK_FORMAT.md](TASK_FORMAT.md).
+
 ## Milestones
 - 15 Nov 2026: first task delivered
 - 30 Nov 2026: version 1, with a 12-task test suite
