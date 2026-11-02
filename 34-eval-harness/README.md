@@ -1,0 +1,19 @@
+# Seat 34: Eval Harness
+
+## Scope
+Golden-task suites with verified-pass checks for the seat agents, a nightly regression run and a score history.
+
+## First task
+A 12-task suite for two existing seats, with verifiers, run end to end.
+
+## Access
+knowledgebase, agent tools, read access across modules
+
+## Milestones
+- 15 Nov 2026: first task delivered
+- 30 Nov 2026: version 1, with a 12-task test suite
+- 20 Dec 2026: integration run of all eight seats
+- 31 Dec 2026: final
+
+## Working rules
+See the top-level README. Put your agent code, tests and notes in this folder; open a pull request for every change.
