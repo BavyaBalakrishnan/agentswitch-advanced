@@ -18,7 +18,7 @@ Items 1 and 4 also depend on the platform owner, so this is how we read them (op
 
 | Date | Milestone | Seat 33 deliverable | Status |
 |---|---|---|---|
-| 15 Nov 2026 | First task | Boundary catalogue: 20 attempts, expected vs actual, findings as bug reports | **PR #1 open** — course format: 16 Held, 2 Broke (BUG-33-001/002), 2 Unclear |
+| 15 Nov 2026 | First task | Boundary catalogue: 20 attempts, expected vs actual, findings as bug reports | **PR #1 open** — course format: 13 Held, 2 Broke (BUG-33-001/002), 5 Unclear |
 | 30 Nov 2026 | Version 1 | 12-task red-team suite in the Eval-Harness format, running on both instances | Planned — candidate tasks below |
 | 20 Dec 2026 | Integration run (all 8 seats) | Red-team the other seats' agents: prompt injection against their inputs, cross-seat write attempts, refusal checks (writes and injection on a copy only — see `CONTRIBUTING.md`) | Planned |
 | 31 Dec 2026 | Final | Definition of done met (see above): suite passes on both systems, ≤5-min demo, README, bug list closed as defined | Planned |
