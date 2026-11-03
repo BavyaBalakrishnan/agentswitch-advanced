@@ -16,7 +16,7 @@ From the seat brief. The seat is finished when all four are true:
 |---|---|---|---|
 | 15 Nov 2026 | First task | Boundary catalogue: 20 attempts, expected vs actual, findings as bug reports | **PR #1 open** — course format: 16 Held, 2 Broke (BUG-33-001/002), 2 Unclear |
 | 30 Nov 2026 | Version 1 | 12-task red-team suite in the Eval-Harness format, running on both instances | Planned — candidate tasks below |
-| 20 Dec 2026 | Integration run (all 8 seats) | Red-team the other seats' agents: prompt injection against their inputs, cross-seat write attempts, refusal checks | Planned |
+| 20 Dec 2026 | Integration run (all 8 seats) | Red-team the other seats' agents: prompt injection against their inputs, cross-seat write attempts, refusal checks (writes and injection on a copy only — see `CONTRIBUTING.md`) | Planned |
 | 31 Dec 2026 | Final | Suite green on both systems, ≤5-min demo, README, closed bug list | Planned |
 
 ## Workstreams and owners (proposed)
@@ -26,7 +26,7 @@ Owners are a **proposal from the seat lead** — swap or claim in the seat group
 | Workstream | Catalogue category | Next work | Proposed owner |
 |---|---|---|---|
 | Lead, review & integration | — | Review/merge PRs; package the v1 replay suite; own the 20 Dec integration run; final README and demo | Ramesh |
-| Prompt injection (agent-in-the-loop) | E | Plant canaries where other seats' agents read (support tickets, `email_to_ticket`, `render_macro`, `translate`) and check whether any agent acts on them | Sagar |
+| Prompt injection (agent-in-the-loop) | E | On the throwaway copy only: plant canaries where other seats' agents read (support tickets, `email_to_ticket`, `render_macro`, `translate`) and check whether any agent acts on them | Sagar |
 | Cross-tenant & email privacy | C, D | Populated-mailbox isolation between two seats; Keystone parity for every C/D check | Padmanabh |
 | Scope mapping & triage | A, B | Systematic read/write scope sweep by risk class (`tools.search risk=…`); triage BUG-33-001/002 with the platform owner | csaparna (→ handover note to Ramesh by 13 Dec) |
 | Auth & tokens | F | Keep F1–F3 as permanent regression checks in the suite | Ramesh |
@@ -50,7 +50,7 @@ Format per `34-eval-harness/TASK_FORMAT.md`: the run happens on a **copy** of th
 | 11 | `rt_scope_jobledger` | Regression for BUG-33-002 | `403` once fixed (tracks the finding until then) |
 | 12 | `rt_scope_ippool` | Regression for BUG-33-001 | `403` once fixed (tracks the finding until then) |
 
-Because harness runs use a throwaway copy, record-changing checks (6–10) can run there without touching live data. On **live** data the approval rule below still applies.
+Because harness runs use a throwaway copy, record-changing checks (6–10) can run there without touching live data. On **live** data, `CONTRIBUTING.md` applies: no writes to records we did not create, and no injection that could reach a customer.
 
 ## Target repo shape
 This follows the course `CATALOGUE_FORMAT.md` and answers the seat group's question about the final shape of the repo.
@@ -91,3 +91,4 @@ Mission-control incidents being reachable (no data yet) is catalogue attempt-03,
 2. **Access as documented vs granted.** The 3 Nov access note lists *email, support, projects, inventory* and agent tools; the login reply grants `agent, crm, email, support, projects` (no inventory). Which is intended?
 3. **Filing bugs.** Are `BUG-33-NNN` drafts in this repo enough, or should findings also be filed on the platform (`BugReport.create`, `delivery: filed`)?
 4. **Test-record cleanup.** Agents cannot delete what they create (`AgentTodo` / `AgentMemory` have no delete tool). Who purges labelled red-team test records on live data?
+5. **Integration run data.** Does the 20 Dec integration run use live data or a copy? Our write and injection tests run there only if it is a copy.
