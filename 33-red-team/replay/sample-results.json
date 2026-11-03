@@ -1,0 +1,10 @@
+{
+  "note": "Illustrative shape only. Real runs write git-ignored results.json. Do not commit tokens or tenant payloads.",
+  "example": [
+    {"id": "01", "verdict": "FINDING?", "title": "IPPool.list"},
+    {"id": "02", "verdict": "FINDING?", "title": "endpoint.job_ledger.forensics"},
+    {"id": "03", "verdict": "UNCLEAR", "title": "Item.list vs endpoint.inventory"},
+    {"id": "14", "verdict": "HELD", "title": "endpoint.inventory.items.list on both"},
+    {"id": "20", "verdict": "HELD", "title": "Mailbox.list + Company.list happy-path"}
+  ]
+}

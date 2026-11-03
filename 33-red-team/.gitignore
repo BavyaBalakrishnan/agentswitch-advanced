@@ -1,0 +1,6 @@
+replay/results.json
+replay/last_run*.json
+replay/last_run*.err
+replay/__pycache__/
+__pycache__/
+*.pyc
