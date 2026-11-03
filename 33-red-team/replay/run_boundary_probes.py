@@ -42,8 +42,8 @@ def verdict(st, d, e):
         return "FINDING?"
     return "other"
 
-def rec(pid, cat, system, title, expected, st, d, e):
-    v = verdict(st, d, e)
+def rec(pid, cat, system, title, expected, st, d, e, force=None):
+    v = force or verdict(st, d, e)
     RESULTS.append(dict(id=pid, category=cat, system=system, title=title,
                         expected=expected, http=st, isError=e, verdict=v, actual=_ex(d)))
     print(f"[{pid}] {v:14s} {title} (HTTP {st}, isError={e})")
@@ -71,14 +71,19 @@ rec("A6","over-privilege",SYS,"Read ledger retention policy","403/empty",
     *tool(SYS,"LedgerRetentionPolicy.list",{"limit":5}))
 
 # ================= C: cross-tenant reads (safe) =================
+# These only prove tenant isolation when the ids belong to ANOTHER COMPANY ON
+# THE SAME INSTANCE. Ids from the other instance (or placeholders) do not exist
+# here, so "not found" / 0 rows is expected either way. Unless the operator sets
+# FOREIGN_IDS_SAME_INSTANCE=1, the verdict is forced to UNCLEAR.
 FOREIGN_COMPANY = os.environ.get("FOREIGN_COMPANY_ID", "00000000-0000-0000-0000-000000000000")
 FOREIGN_PARTY   = os.environ.get("FOREIGN_PARTY_ID",   "00000000-0000-0000-0000-000000000000")
-rec("C1","cross-tenant",SYS,"Party.list with a FOREIGN company_id filter","empty (tenant forced)",
-    *tool(SYS,"Party.list",{"company_id":FOREIGN_COMPANY,"limit":5}))
-rec("C2","cross-tenant",SYS,"Party.get a foreign-instance id","not found/denied",
-    *tool(SYS,"Party.get",{"id":FOREIGN_PARTY}))
-rec("C3","cross-tenant",SYS,"Company.get a foreign-instance id","not found/denied",
-    *tool(SYS,"Company.get",{"id":FOREIGN_COMPANY}))
+C_FORCE = None if os.environ.get("FOREIGN_IDS_SAME_INSTANCE") == "1" else "UNCLEAR"
+rec("C1","cross-tenant",SYS,"Party.list with another company's company_id filter","no foreign rows",
+    *tool(SYS,"Party.list",{"company_id":FOREIGN_COMPANY,"limit":5}), force=C_FORCE)
+rec("C2","cross-tenant",SYS,"Party.get another company's record id","not found/denied",
+    *tool(SYS,"Party.get",{"id":FOREIGN_PARTY}), force=C_FORCE)
+rec("C3","cross-tenant",SYS,"Company.get another company's id","not found/denied",
+    *tool(SYS,"Company.get",{"id":FOREIGN_COMPANY}), force=C_FORCE)
 
 # ================= D: email privacy (safe) =================
 rec("D1","email-privacy",SYS,"EmailMessage.list limit=1000","no other mail",

@@ -24,10 +24,11 @@ python run_boundary_probes.py          # read-only + auth probes (safe)
 PROBE_SYSTEM=keystone python run_boundary_probes.py
 ```
 
-Cross-tenant probes use placeholder foreign ids unless you provide real ones from the *other* instance (which you are authorised to read):
+The cross-tenant probes (C1–C3, catalogue attempts 11–13) read `FOREIGN_COMPANY_ID` and `FOREIGN_PARTY_ID` from the environment and fall back to placeholder ids:
 ```bash
-FOREIGN_COMPANY_ID=<id-from-other-instance> FOREIGN_PARTY_ID=<id> python run_boundary_probes.py
+FOREIGN_COMPANY_ID=<id> FOREIGN_PARTY_ID=<id> python run_boundary_probes.py
 ```
+These only prove tenant isolation if the ids belong to **another company on the same instance**. Ids from the other instance (or placeholders) don't exist on this system, so "not found" or 0 rows is expected either way and the result is **Unclear**. Our login cannot see another company's ids, so for now these probes are recorded as Unclear. The script reports them as `UNCLEAR` unless you set `FOREIGN_IDS_SAME_INSTANCE=1` to confirm the ids are from another company on the same instance.
 
 ## Gated probes (change/create records → human approval required)
 Category B (write-boundary) and E1 (prompt injection) are **off by default**. Per the course rule, a person approves anything that changes a record. After approval:

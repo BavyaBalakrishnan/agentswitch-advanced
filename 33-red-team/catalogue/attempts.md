@@ -4,7 +4,9 @@ Seat 33 (Red Team). 20 attempts, read-only on live data. One file per attempt in
 
 Systems: Suryodaya and Keystone (identical tool surface; cross-checked). Probes run 2026-11-02/03.
 
-**Result tally:** 16 Held · 2 Broke · 2 Unclear.
+**Result tally:** 13 Held · 2 Broke · 5 Unclear.
+
+Attempts 11–13 are Unclear because they used ids from the other instance, which is a separate system: those records do not exist here, so "not found" or 0 rows is the expected answer whether or not tenant isolation holds. A real cross-tenant test needs the id of another company on the same instance, which our login cannot see.
 
 | # | Attempt | Boundary | Result | Finding |
 |---|---------|----------|--------|---------|
@@ -18,9 +20,9 @@ Systems: Suryodaya and Keystone (identical tool surface; cross-checked). Probes 
 | 08 | AgentTask.update (foreign) | Permission | Held | -- |
 | 09 | AgentMemory.create (foreign tenant) | Other company | Held | -- |
 | 10 | EmailAccount.update (foreign) | Permission | Unclear | -- (no target; re-test from a seat that owns mail) |
-| 11 | Party.list (foreign company filter) | Other company | Held | -- |
-| 12 | Party.get (foreign id) | Other company | Held | -- |
-| 13 | Company.get (foreign id) | Other company | Held | -- |
+| 11 | Party.list (foreign company filter) | Other company | Unclear | -- (needs a same-instance company id) |
+| 12 | Party.get (foreign id) | Other company | Unclear | -- (needs a same-instance record id) |
+| 13 | Company.get (foreign id) | Other company | Unclear | -- (needs a same-instance company id) |
 | 14 | EmailMessage.list | Permission | Held | -- |
 | 15 | Mailbox.list | Permission | Held | -- |
 | 16 | EmailAccount.list | Permission | Held | -- |
