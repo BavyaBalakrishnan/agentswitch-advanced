@@ -9,3 +9,6 @@ __pycache__/
 node_modules/
 .venv/
 .DS_Store
+.token.*
+.local/
+28-ea/briefings/
