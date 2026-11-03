@@ -1,4 +1,6 @@
-# Seat 33 harness — boundary probes
+# Seat 33 replay — boundary probes
+
+The replay script repeats the catalogue attempts from a login (read from the environment, never a file), as required by `../CATALOGUE_FORMAT.md`. The course team re-runs it against the test systems before each release.
 
 Stdlib-only Python. No credentials, no platform source, no schemas are stored here.
 
@@ -35,7 +37,7 @@ RUN_WRITE_PROBES=1 python run_boundary_probes.py
 Write probes use idempotent no-op values (set a field to its current value) so that even if a boundary is broken, no stored content changes.
 
 ## Output
-`results.json` (git-ignored by convention — redact internal ids before committing any evidence). The reviewed, redacted findings live in `../boundary-catalogue.md` and `../bug-reports/`.
+`results.json` (git-ignored — redact internal ids before committing any evidence). The reviewed, redacted catalogue is in `../catalogue/` (`attempts.md` + `attempt-NN.md`) and the findings for Broke results are in `../findings/`.
 
 ## Toward v1 (30 Nov)
 This runner will be wrapped to the Eval-Harness interface (`agentswitch-harness.toml`, see `../../34-eval-harness/TASK_FORMAT.md`) so the boundary checks run as negative/refusal tasks in the 12-task suite.
