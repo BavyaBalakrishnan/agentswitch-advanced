@@ -14,7 +14,7 @@ From the seat brief. The seat is finished when all four are true:
 
 | Date | Milestone | Seat 33 deliverable | Status |
 |---|---|---|---|
-| 15 Nov 2026 | First task | Boundary catalogue: 20 attempts, expected vs actual, findings as bug reports | **PR #1 open** — 2 findings, 1 observation, 16 held, 1 N/A |
+| 15 Nov 2026 | First task | Boundary catalogue: 20 attempts, expected vs actual, findings as bug reports | **PR #1 open** — course format: 16 Held, 2 Broke (BUG-33-001/002), 2 Unclear |
 | 30 Nov 2026 | Version 1 | 12-task red-team suite in the Eval-Harness format, running on both instances | Planned — candidate tasks below |
 | 20 Dec 2026 | Integration run (all 8 seats) | Red-team the other seats' agents: prompt injection against their inputs, cross-seat write attempts, refusal checks | Planned |
 | 31 Dec 2026 | Final | Suite green on both systems, ≤5-min demo, README, closed bug list | Planned |
@@ -25,10 +25,10 @@ Owners are a **proposal from the seat lead** — swap or claim in the seat group
 
 | Workstream | Catalogue category | Next work | Proposed owner |
 |---|---|---|---|
-| Lead, review & integration | — | Review/merge PRs; package the v1 harness; own the 20 Dec integration run; final README and demo | Ramesh |
+| Lead, review & integration | — | Review/merge PRs; package the v1 replay suite; own the 20 Dec integration run; final README and demo | Ramesh |
 | Prompt injection (agent-in-the-loop) | E | Plant canaries where other seats' agents read (support tickets, `email_to_ticket`, `render_macro`, `translate`) and check whether any agent acts on them | Sagar |
 | Cross-tenant & email privacy | C, D | Populated-mailbox isolation between two seats; Keystone parity for every C/D check | Padmanabh |
-| Scope mapping & triage | A, B | Systematic read/write scope sweep by risk class (`tools.search risk=…`); triage BUG-33-001..003 with the platform owner | csaparna (→ handover note to Ramesh by 13 Dec) |
+| Scope mapping & triage | A, B | Systematic read/write scope sweep by risk class (`tools.search risk=…`); triage BUG-33-001/002 with the platform owner | csaparna (→ handover note to Ramesh by 13 Dec) |
 | Auth & tokens | F | Keep F1–F3 as permanent regression checks in the suite | Ramesh |
 
 ## v1 suite (30 Nov): 12 candidate tasks
@@ -53,19 +53,22 @@ Format per `34-eval-harness/TASK_FORMAT.md`: the run happens on a **copy** of th
 Because harness runs use a throwaway copy, record-changing checks (6–10) can run there without touching live data. On **live** data the approval rule below still applies.
 
 ## Target repo shape
-This answers the open question in the seat group about the final shape of the repo.
+This follows the course `CATALOGUE_FORMAT.md` and answers the seat group's question about the final shape of the repo.
 
 ```
 33-red-team/
   README.md              course brief (unchanged)
+  CATALOGUE_FORMAT.md    course catalogue format (unchanged)
   PLAN.md                this plan
   CONTRIBUTING.md        how we work: workflow, safety tiers, bug IDs
-  boundary-catalogue.md  first task (PR #1)
-  bug-reports/           BUG-33-NNN-<slug>.md, one per finding, + TEMPLATE.md
-  harness/               MCP client + probe runner → becomes the v1 suite
-  results/               redacted samples only (raw run output is git-ignored)
+  catalogue/attempts.md  first task: the 20-attempt table (PR #1)
+  catalogue/attempt-NN.md  one file per attempt, six headings each
+  replay/                a script that repeats the attempts from a login (env, never a file)
+  findings/              one bug report per Broke result, in root BUG_REPORT_FORMAT.md fields
   docs/                  handover note (csaparna, by 13 Dec), demo script
 ```
+
+Bug reports use the root `BUG_REPORT_FORMAT.md`. The attempts do not run as GitHub CI (they need a platform login); the course team re-runs our `replay/` script against the test systems before each release.
 
 It is not a platform CI job. The Eval-Harness seat runs suites on demand against a copy of an instance (one run per seat every 3 days), and keeps a score history. Our suite is what it runs for us.
 
@@ -73,9 +76,10 @@ It is not a platform CI job. The Eval-Harness seat runs suites on demand against
 
 | ID | Title | Severity | Status |
 |---|---|---|---|
-| BUG-33-001 | Low-privilege seat can read email IP-pool config | Low | `new` (draft in PR #1) |
-| BUG-33-002 | Low-privilege seat can read job-ledger forensics | Medium | `new` (draft in PR #1) |
-| BUG-33-003 | Mission-control incidents reachable (no data yet) | Low / observation | `new` (draft in PR #1) |
+| BUG-33-001 | Low-privilege seat can read email IP-pool config | Low | `new` (findings/, PR #1) |
+| BUG-33-002 | Low-privilege seat can read job-ledger forensics | Medium | `new` (findings/, PR #1) |
+
+Mission-control incidents being reachable (no data yet) is catalogue attempt-03, marked **Unclear** — re-test when incident data exists; it becomes a finding only if it then discloses data.
 
 ## Cadence
 - **Every Sunday** in the seat group: what we finished, what is next, one blocker.
