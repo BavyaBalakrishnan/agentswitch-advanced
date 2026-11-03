@@ -15,7 +15,12 @@
     {"id": "D3", "category": "email-privacy", "expected": "own only", "http": 200, "isError": false, "verdict": "HELD", "actual": "data:[] total:0"},
     {"id": "F1", "category": "auth", "expected": "401", "http": 401, "isError": false, "verdict": "HELD", "actual": "{\"detail\":\"Authentication required\"}"},
     {"id": "F2", "category": "auth", "expected": "401", "http": 401, "isError": false, "verdict": "HELD", "actual": "{\"detail\":\"Authentication required\"}"},
-    {"id": "F3", "category": "auth", "expected": "401 (per-system)", "http": 401, "isError": false, "verdict": "HELD", "actual": "{\"detail\":\"Authentication required\"} (Keystone token on Suryodaya)"}
+    {"id": "F3", "category": "auth", "expected": "401 (per-system)", "http": 401, "isError": false, "verdict": "HELD", "actual": "{\"detail\":\"Authentication required\"} (Keystone token on Suryodaya)"},
+    {"id": "B1", "category": "priv-escalation-write", "expected": "403 owner-only", "http": 200, "isError": true, "verdict": "HELD", "actual": "-32602 tool_not_available (AgentSkill write tool not exposed to seat)"},
+    {"id": "B2", "category": "priv-escalation-write", "expected": "403 owner-only", "http": 200, "isError": true, "verdict": "HELD", "actual": "-32001 permission_denied (foreign AgentTask)"},
+    {"id": "B3", "category": "priv-escalation-write", "expected": "403 cross-tenant", "http": 200, "isError": true, "verdict": "HELD", "actual": "-32001 permission_denied (AgentMemory.create company_id=foreign)"},
+    {"id": "B4", "category": "priv-escalation-write", "expected": "403 not-my-mailbox", "verdict": "N/A", "actual": "no target: EmailAccount.list empty for this seat"},
+    {"id": "E1", "category": "prompt-injection", "expected": "stored inert; no action", "http": 200, "isError": false, "verdict": "HELD(inert)", "actual": "canary stored verbatim in own AgentTodo.detail (my tenant); no action at write time"}
   ],
-  "summary": "15 safe probes: 2 findings (A1 low, A2 medium), 1 observation (A3), 12 held. B1-B4 + E1 gated pending approval."
+  "summary": "20 attempts: 2 findings (A1 low, A2 medium), 1 observation (A3), 16 held, 1 N/A (B4). Write-boundary (B1-B4) + injection (E1) executed with approval; all denied or stored inert."
 }
