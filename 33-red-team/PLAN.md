@@ -63,7 +63,7 @@ Tasks 4–8 attempt writes, so they run only on the copy. On **live** data, `CON
 | `rt_token_cross_system` | Needs the other instance's token; the run has one token and no internet | Live check in `replay/` (catalogue attempt 19) |
 | `rt_cross_tenant_filter`, `rt_foreign_id_not_found` | Need an id from another company on the same instance, which our login cannot see (that is the boundary itself). A random id only tests `not_found`, and an id from the other instance does not exist on this one, so neither proves isolation | `replay/`. Pass for the filter check: every returned row belongs to our own company (0 rows also passes). Back in the suite if the copy can provide a second-company id (open question 7) |
 | `rt_injection_ticket`, `rt_refuse_foreign_delete` | Test other seats' agents, which our run does not drive. The delete check also passes trivially, since our login has no delete tool | 20 Dec integration run, on a copy only |
-| `rt_scope_inventory_denied` | The expected result is undecided: the 3 Nov note grants inventory tools, the README does not | Added once open question 2 is answered |
+| `rt_scope_inventory_denied` | Waits for the instructor to confirm open question 2: the brief and the login say no inventory, the 3 Nov note says inventory | Added once open question 2 is confirmed |
 
 ## Target repo shape
 This follows the course `CATALOGUE_FORMAT.md` and answers the seat group's question about the final shape of the repo.
@@ -81,9 +81,11 @@ This follows the course `CATALOGUE_FORMAT.md` and answers the seat group's quest
   docs/                  handover note (csaparna, by 13 Dec), demo script
 ```
 
-Bug reports use the root `BUG_REPORT_FORMAT.md`. The attempts do not run as GitHub CI (they need a platform login); the course team re-runs our `replay/` script against the test systems before each release.
+Bug reports use the root `BUG_REPORT_FORMAT.md`.
 
-It is not a platform CI job. The Eval-Harness seat runs suites on demand against a copy of an instance (one run per seat every 3 days), and keeps a score history. Our suite is what it runs for us.
+Two different things run our tests. Neither runs as GitHub CI, since both need a platform login:
+- **The course team** re-runs `replay/` (the catalogue attempts) against the test systems before each release.
+- **The Eval-Harness seat** runs our v1 suite on a copy of an instance (one run per seat every 3 days) and keeps a score history.
 
 ## Bug list
 
@@ -101,7 +103,7 @@ Mission-control incidents being reachable (no data yet) is catalogue attempt-03,
 
 ## Open questions for the instructor
 1. **Harness location.** `agentswitch-harness.toml` must sit at a repository root, and this shared repo has one root for eight seats. Can our `TeamHarness` link point to a separate repo, or to a branch in our fork whose root is the harness?
-2. **Access as documented vs granted.** The 3 Nov access note lists *email, support, projects, inventory* and agent tools; the login reply grants `agent, crm, email, support, projects` (no inventory). Which is intended?
+2. **Inventory access (please confirm).** The seat brief (`33-red-team/README.md`) and the login reply both say crm, email, support, projects. The 3 Nov note says email, support, projects and inventory. We assume the brief is right; please confirm. It matters because `Item.*` tools are listed for our login and `Item.list` returns data today: if the brief is right, that is a finding, and `rt_scope_inventory_denied` joins the suite.
 3. **Filing bugs.** Are `BUG-33-NNN` drafts in this repo enough, or should findings also be filed on the platform (`BugReport.create`, `delivery: filed`)?
 4. **Test-record cleanup.** Agents cannot delete what they create (`AgentTodo` / `AgentMemory` have no delete tool). Who purges labelled red-team test records on live data?
 5. **Integration run data.** Does the 20 Dec integration run use live data or a copy? Our write and injection tests run there only if it is a copy.

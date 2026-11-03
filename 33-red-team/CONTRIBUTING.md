@@ -12,6 +12,7 @@ How the four of us work in this folder. The top-level `README.md` rules apply on
 ## Credentials
 - Get a token per system with one login call (see `replay/README.md`). Tokens last 7 days.
 - Keep tokens in environment variables (`AGENTSWITCH_SURYODAYA_TOKEN`, `AGENTSWITCH_KEYSTONE_TOKEN`). **Never** put a password, token or key in a file you commit, a PR, an issue or the group chat.
+- Those per-system names are for running `replay/` locally. A harness run (the v1 suite) instead gets a single `AGENTSWITCH_TOKEN` plus `AGENTSWITCH_BASE_URL` and `AGENTSWITCH_INSTANCE` (see `34-eval-harness/TASK_FORMAT.md`), so the v1 runner must read those.
 - 10 wrong passwords in 15 minutes lock the login, and we share it. Copy the password from your DM; do not guess.
 - If a secret is ever committed by mistake, tell the course team at once so it can be replaced. Deleting the commit is not enough.
 
