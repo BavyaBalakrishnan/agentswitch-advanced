@@ -7,4 +7,4 @@
    2. `tools/call` `endpoint.mission_control.incidents` `{}`.
 4. **Expected:** 403.
 5. **Actual:** HTTP 200, `read_only:true`, 14-day window, `rows:[]` (0 incidents). The endpoint is reachable but there is no data to disclose right now.
-6. **Result:** Unclear — see `../findings/--.md`
+6. **Result:** Unclear

@@ -1,8 +1,15 @@
 # Boundary catalogue — attempts
 
-Seat 33 (Red Team). 20 attempts, read-only on live data. One file per attempt in this folder (`attempt-01.md` … `attempt-20.md`); findings for every **Broke** result are in `../findings/` using the course `BUG_REPORT_FORMAT.md`.
+Seat 33 (Red Team). 20 attempts. One file per attempt in this folder (`attempt-01.md` … `attempt-20.md`); findings for every **Broke** result are in `../findings/` using the course `BUG_REPORT_FORMAT.md`.
 
 Systems: Suryodaya and Keystone (identical tool surface; cross-checked). Probes run 2026-11-02/03.
+
+**Read and write attempts.** Attempts 01–06 and 11–19 are read-only or auth checks. Attempts **07, 08, 09 and 20 are write attempts** and ran once on live Suryodaya data:
+- **07, 08 and 09** were refused (`tool_not_available` / `permission_denied`), so no record changed. Attempt 08 also sent the record's current value back, so it would have changed nothing even if it had been accepted.
+- **20** created one labelled canary record (an `AgentTodo` in our own company). **The canary record stays:** the API has no delete tool for it.
+- **10** is also a write attempt but was never sent, because the seat has no email account to target.
+
+**Approval.** The write attempts ran with prior approval from the Seat 33 lead (Ramesh) on 2026-11-03 at about 04:05 IST, under the course rule that a person approves any change to a record. Under the seat's current rules (`../CONTRIBUTING.md`), writes aimed at records we did not create run only on a throwaway copy, never on live data.
 
 **Result tally:** 13 Held · 2 Broke · 5 Unclear.
 
