@@ -81,6 +81,17 @@ class BriefingTests(unittest.TestCase):
         self.assertIn("Quote", text)
         self.assertIn("no draft was saved", text)
 
+    def test_tool_error_is_not_treated_as_a_record(self):
+        with self.assertRaises(RuntimeError):
+            briefing.tool_result(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 1,
+                    "error": {"code": -32602, "message": "Due Date cannot be before 2026-11-04"},
+                },
+                "Task.create",
+            )
+
     def test_script_never_sends_or_books(self):
         source = Path(briefing.__file__).read_text()
         for forbidden in (

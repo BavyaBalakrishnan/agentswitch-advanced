@@ -68,12 +68,25 @@ def call(base: str, token: str, name: str, arguments: dict) -> dict:
         payload = json.loads(data)
     else:
         payload = json.loads(raw)
+    return tool_result(payload, name)
+
+
+def tool_result(payload: dict, name: str) -> dict:
+    if isinstance(payload, dict) and payload.get("error"):
+        err = payload["error"]
+        message = err.get("message") if isinstance(err, dict) else str(err)
+        raise RuntimeError(f"{name} failed: {message}")
     result = payload.get("result", payload)
-    if result.get("isError"):
+    if isinstance(result, dict) and result.get("isError"):
         raise RuntimeError(f"{name} failed: {result}")
-    content = result.get("content") or []
+    content = result.get("content") or [] if isinstance(result, dict) else []
     if content and isinstance(content[0], dict) and "text" in content[0]:
-        return json.loads(content[0]["text"])
+        parsed = json.loads(content[0]["text"])
+        if isinstance(parsed, dict) and parsed.get("error"):
+            err = parsed["error"]
+            message = err.get("message") if isinstance(err, dict) else str(err)
+            raise RuntimeError(f"{name} failed: {message}")
+        return parsed
     return result
 
 

@@ -195,3 +195,32 @@ The script calls `EmailMessage.list`, `CalendarEvent.list`, and `Task.list` on b
 | Keystone | 0 | 0 | 63 (16 high, 47 medium) |
 
 No draft was saved, because both inboxes were empty. `EmailMessage.reply`, `EmailMessage.send_email`, `EmailMessage.create`, and `EmailMessage.save_draft` were not called.
+
+## Step 9. Test data under team28b, then run the briefing
+
+When: 4 November 2026, morning IST.
+
+Nishanth asked for test records created by this login. New records only. Nothing already there was changed or deleted. No mail was sent.
+
+Created on both systems:
+
+| Record | Suryodaya | Keystone |
+|---|---|---|
+| Project `EA briefing test (varun)` | `c0abfe56-e70f-495c-8827-569efd8f3660` | `7af65a5f-88c8-475d-bc32-5b51ae3eb026` |
+| Calendar `EA briefing test (varun)` | `fc6ac0ef-b96b-47da-befa-572c5efd7d77` | `9a2e57f9-5e03-4a80-9035-8a90e52c6757` |
+| Meeting today 15:00–15:30 IST | `a09f7d8a-ad2d-4742-8636-e33486b16990` | `43b91e2b-4547-4a02-8d8f-dc4f5a2726d2` |
+| Task due 2026-11-04, status `todo` | `3a92a18b-a29a-48ad-a735-cc90ac2667eb` | `7988fb8f-ab0c-44c4-8b4b-6bc9d9d8c9af` |
+
+`Task.create` with `due_date` `2026-11-01` was refused on Suryodaya: "Due Date cannot be before 2026-11-04, the date this record was created." The same rule applies on a record created today, so the task due date is today. It is not overdue yet. It should appear in tomorrow's briefing.
+
+`EmailMessage.create` returned an id and `folder` `inbox`, with `is_read` 0, `is_draft` 0, and `status` `draft`. The next `EmailMessage.get` on that id returned "EmailMessage not found." `EmailMessage.list` still has total 0. There is still no mailbox. The same thing happened on both systems. Those calls do not show up in the briefing.
+
+Briefing run after the creates:
+
+| Section | Suryodaya | Keystone |
+|---|---:|---:|
+| Unread mail | 0 | 0 |
+| Meetings today, including the new test meeting | 1 | 1 |
+| Overdue open tasks, not including the task due today | 71 | 63 |
+
+`briefing.call` used to treat a JSON-RPC error as a normal record. `tool_result` now raises. Unit tests: 10 passed. This code change is local and is not on the pull request yet.
