@@ -21,12 +21,12 @@ How the four of us work in this folder. The top-level `README.md` rules apply on
 
 ## Safety tiers for probes
 
-The approver for any Tier 2 work is the **seat lead or the instructor** — a teammate's 👍 in chat is not enough for a write to a shared live instance.
+**Who approves a write on live data.** Ask the **platform team** in the Seat 33 group chat *before* running it, and wait for their reply. The approval must not come from the person who runs the probe, so the seat lead cannot approve their own run. A teammate's 👍 is not enough. Record who approved, and when, in the catalogue entry.
 
 | Tier | What it covers | Rule |
 |---|---|---|
 | **1 — Read / auth** | `.list`, `.get`, read-only endpoints, calls with no or wrong token | Run freely. |
-| **2a — Changes a record we created** | `.create`/`.update` on our own records; planting a canary in our own record | Seat lead or instructor approves first. Prefer an idempotent no-op (write a field back with its current value). Label anything created `[redteam-probe <ID>]`. |
+| **2a — Changes a record we created** | `.create`/`.update` on our own records; planting a canary in our own record | On live data, the platform team approves first in the seat group (see above). Prefer an idempotent no-op (write a field back with its current value). Label anything created `[redteam-probe <ID>]`. |
 | **2b — Touches a record we did not create** | Any write/update/transition aimed at another seat's or tenant's record | **Not on a live system.** Run it only against the throwaway copy the Eval-Harness seat provides. See note 1. |
 | **3 — Never on live data** | Deletes; anything that sends email or campaigns or otherwise reaches a customer; the account-lockout path; load or flooding | Do not run. Describe it in the catalogue as "not exercised" and why. |
 
