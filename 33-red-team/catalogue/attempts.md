@@ -4,12 +4,12 @@ Seat 33 (Red Team). 20 attempts. One file per attempt in this folder (`attempt-0
 
 Systems: Suryodaya and Keystone (identical tool surface; cross-checked). Probes run 2026-11-02/03.
 
-**Read and write attempts.** Attempts 01–06 and 11–19 are read-only or auth checks. Attempts **07, 08, 09 and 20 are write attempts** and ran once on live Suryodaya data:
+**Read and write attempts.** Attempts 01–06 and 11–19 are read-only or auth checks. Attempts **07, 08, 09 and 20 are write attempts** and ran on live Suryodaya data on 2026-11-03, between about 09:34 and 09:36 IST (04:04–04:06 UTC). Attempts 09 and 20 were sent twice: the first try used a wrong field name and was rejected as invalid arguments, so it created nothing.
 - **07, 08 and 09** were refused (`tool_not_available` / `permission_denied`), so no record changed. Attempt 08 also sent the record's current value back, so it would have changed nothing even if it had been accepted.
-- **20** created one labelled canary record (an `AgentTodo` in our own company). **The canary record stays:** the API has no delete tool for it.
+- **20** created one labelled canary record (an `AgentTodo` in our own company). **The canary record stays:** the API has no delete tool for it. A read-only check on 2026-11-04 found it is the only canary record on either system.
 - **10** is also a write attempt but was never sent, because the seat has no email account to target.
 
-**Approval.** The write attempts ran with prior approval from the Seat 33 lead (Ramesh) on 2026-11-03 at about 04:05 IST, under the course rule that a person approves any change to a record. Under the seat's current rules (`../CONTRIBUTING.md`), writes aimed at records we did not create run only on a throwaway copy, never on live data.
+**Approval.** The write attempts ran with prior approval from the Seat 33 lead (Ramesh), given just before the run on 2026-11-03, under the course rule that a person approves any change to a record. Under the seat's current rules (`../CONTRIBUTING.md`), writes aimed at records we did not create run only on a throwaway copy, never on live data.
 
 **Result tally:** 13 Held · 2 Broke · 5 Unclear.
 
