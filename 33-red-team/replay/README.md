@@ -24,6 +24,20 @@ python run_boundary_probes.py          # read-only + auth probes (safe)
 PROBE_SYSTEM=keystone python run_boundary_probes.py
 ```
 
+**Login check.** Before any probe, the script makes one control call (`Company.list`) with your token. If the token is missing, expired or rejected, it stops with a message and runs no probes, so a bad login can never show up as a clean run. If the other system's token is set for F3, it is checked on its own system first. Otherwise a 401 would prove nothing about per-system tokens.
+
+### Verdicts
+| Verdict | Meaning |
+|---|---|
+| `HELD` | The call was refused: `permission_denied` or HTTP 403. For the auth probes (F1–F3), HTTP 401. |
+| `HELD(not-exposed)` | `tool_not_available`: the tool is not in this login's `tools/list`. If a Broke attempt flips to this, check `tools/list` for a renamed tool before calling it fixed. |
+| `HELD(no-data)` | HTTP 200 with no records. |
+| `FINDING?` | HTTP 200 with records. Compare with the catalogue. A1 and A2 are expected here (BUG-33-001/002). |
+| `UNCLEAR` | The probe ran but cannot decide the boundary: A3 when it is reachable but empty (attempt-03), and C1–C3 (see below). |
+| `ERROR` | Anything else: bad arguments, a server or network error, or an unexpected 401. The probe did not test the boundary, so it is never counted as Held. |
+
+The script prints a summary and **exits with status 1 if any probe is `ERROR`**. A forced verdict (`UNCLEAR`) never hides an `ERROR`.
+
 The cross-tenant probes (C1–C3, catalogue attempts 11–13) read `FOREIGN_COMPANY_ID` and `FOREIGN_PARTY_ID` from the environment and fall back to placeholder ids:
 ```bash
 FOREIGN_COMPANY_ID=<id> FOREIGN_PARTY_ID=<id> python run_boundary_probes.py

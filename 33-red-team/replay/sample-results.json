@@ -1,5 +1,5 @@
 {
-  "_note": "Redacted sample of a safe (read-only + auth) run on Suryodaya, 2026-11-02. Internal ids and record contents removed. Regenerate locally with ../harness/run_boundary_probes.py.",
+  "_note": "Redacted sample of a safe (read-only + auth) run on Suryodaya, 2026-11-02. Internal ids and record contents removed. Regenerate locally with run_boundary_probes.py in this folder. Verdicts here use the catalogue terms (Broke = FINDING? confirmed in findings/).",
   "results": [
     {"id": "A1", "category": "over-privilege", "expected": "403/out-of-scope", "http": 200, "isError": false, "verdict": "BROKE", "actual": "IPPool rows returned (tenant-scoped, write:false) — see BUG-33-001"},
     {"id": "A2", "category": "over-privilege", "expected": "403 governance", "http": 200, "isError": false, "verdict": "BROKE", "actual": "job-ledger forensic rows returned (has_more:true) — see BUG-33-002"},
