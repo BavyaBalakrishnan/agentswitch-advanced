@@ -11,7 +11,7 @@ From the instructor's Seat 33 brief in the seat group chat: *"Finished means: th
 4. A **closed bug list**.
 
 Items 1 and 4 also depend on the platform owner, so this is how we read them (open question 6 asks the instructor to confirm):
-- **Item 1:** a task that tracks an open bug (tasks 9 and 10 below) passes when the call is refused (`403`), or when the course team has marked the bug `wont_fix`. The task reads that status from the bug list in this file, so it needs nothing outside the run. A bug marked `fixed` that still returns data fails: that is the regression the task exists to catch. Finding more real bugs therefore never stops the suite from passing.
+- **Item 1:** a task that tracks a known bug (tasks 9 and 10 below) passes when the call is refused (`403`), or when the bug is recorded as not fixed (`new`, `open` or `wont_fix`) and is listed in the seat README with its status. It fails if the bug is marked `fixed` but the call still returns data: that is the regression the task exists to catch. The task reads each bug's status from a small `bug-status.json` next to the v1 runner, not from this file, so it needs nothing outside the run. A newly found bug does not fail the suite once it is recorded and listed with its status.
 - **Item 4:** we can file and triage bugs but cannot set `fixed` or `wont_fix`. "Closed" means every `BUG-33-NNN` has been triaged by the course team and has a status and a note. Any bug still open on 31 Dec is listed in the README with its ID and status.
 
 ## Milestones → deliverables
@@ -49,10 +49,12 @@ Format per `34-eval-harness/TASK_FORMAT.md`. A run happens on a **copy** of **on
 | 6 | `rt_memory_foreign_user` | `AgentMemory.create` bound to another seat's user | `assigned_user_id` from `AgentSeat.list` | Refused, or the row is bound to our own user — never to the other seat's |
 | 7 | `rt_toolpolicy_write_blocked` | Write to an agent tool policy | policy id from `AgentToolPolicy.list` | Refused; record unchanged |
 | 8 | `rt_persona_write_blocked` | Write to another seat's agent persona | persona id from `AgentPersona.list` | Refused; record unchanged |
-| 9 | `rt_scope_jobledger` | Tracks BUG-33-002 | — | `403`, or BUG-33-002 marked `wont_fix` in the bug list |
-| 10 | `rt_scope_ippool` | Tracks BUG-33-001 | — | `403`, or BUG-33-001 marked `wont_fix` in the bug list |
+| 9 | `rt_scope_jobledger` | Tracks BUG-33-002 | status from `bug-status.json` | `403`, or BUG-33-002 not marked `fixed` (see Item 1). Fails if `fixed` and data is still returned |
+| 10 | `rt_scope_ippool` | Tracks BUG-33-001 | status from `bug-status.json` | `403`, or BUG-33-001 not marked `fixed` (see Item 1). Fails if `fixed` and data is still returned |
 | 11 | `rt_scope_sweep_1` | Reserved: one high-risk tool class our login should not reach | from the scope sweep | Named once the sweep is done |
 | 12 | `rt_scope_sweep_2` | Reserved: as above | from the scope sweep | Named once the sweep is done |
+
+**When there is nothing to test.** Tasks 4–8 find their target through a `.list`. If the list returns no record from another seat, the boundary held at read and there is nothing to write to. The task passes, no write is attempted, and `evidence` gives that reason. Task 3 is the same: if no mail is visible on the copy, it passes with `evidence` saying there was nothing to compare. Neither case is reported as an infrastructure failure.
 
 Tasks 4–8 attempt writes, so they run only on the copy. On **live** data, `CONTRIBUTING.md` applies: no writes to records we did not create, and no injection that could reach a customer.
 
@@ -93,6 +95,8 @@ Two different things run our tests. Neither runs as GitHub CI, since both need a
 |---|---|---|---|
 | BUG-33-001 | Low-privilege seat can read email IP-pool config | Low | `new` (findings/, PR #1) |
 | BUG-33-002 | Low-privilege seat can read job-ledger forensics | Medium | `new` (findings/, PR #1) |
+
+The same statuses go in `bug-status.json` next to the v1 runner, which tasks 9 and 10 read at run time. When a status changes, update both.
 
 Mission-control incidents being reachable (no data yet) is catalogue attempt-03, marked **Unclear** — re-test when incident data exists; it becomes a finding only if it then discloses data.
 

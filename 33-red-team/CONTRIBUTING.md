@@ -6,7 +6,10 @@ How the four of us work in this folder. The top-level `README.md` rules apply on
 1. Fork `theschoolofai/agentswitch-advanced` and work on a branch named `seat33/<topic>` (e.g. `seat33/injection-tickets`).
 2. Keep your changes inside `33-red-team/`.
 3. Open a pull request into `main` using the PR template.
-4. You need **one review** from another person on Seat 33 or the Eval-Harness seat. Then the seat lead (Ramesh) merges. Nobody merges their own PR.
+4. The required approval must come from a **seat lead** (only leads have write access):
+   - A PR from a Seat 33 member is approved and merged by the Seat 33 lead (Ramesh).
+   - A PR from the Seat 33 lead is approved and merged by a lead from another seat.
+   - Reviews from members are still useful and welcome, but they don't count as the required approval. Nobody merges their own PR.
 5. Small PRs, often. Commits and bug IDs are the record of each person's work.
 
 ## Credentials
