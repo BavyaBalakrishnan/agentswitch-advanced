@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 OUT_DIR = Path(__file__).resolve().parent / "briefings"
 ZONE = ZoneInfo("Asia/Kolkata")
 DONE = {"done", "completed", "complete", "cancelled", "canceled", "closed"}

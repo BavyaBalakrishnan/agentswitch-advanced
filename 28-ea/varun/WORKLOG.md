@@ -224,3 +224,24 @@ Briefing run after the creates:
 | Overdue open tasks, not including the task due today | 71 | 63 |
 
 `briefing.call` used to treat a JSON-RPC error as a normal record. `tool_result` now raises. Unit tests: 10 passed. This code change is local and is not on the pull request yet.
+
+## Step 10. Move the code into 28-ea/varun and recheck on 5 November
+
+When: 5 November 2026, morning IST.
+
+The seat plan is one folder per person: `28-ea/nishanth/`, `28-ea/varun/`, `28-ea/sandip/`. Varun's script, tests, notes, and README now live in `28-ea/varun/`. The shared `28-ea/README.md` is back to the course text. Run:
+
+```bash
+python3 28-ea/varun/briefing.py
+python3 -m unittest discover -s 28-ea/varun -p 'test_*.py'
+```
+
+The task created on 4 November is due that day, so on 5 November it counts as overdue. Result of the run:
+
+| Section | Suryodaya | Keystone |
+|---|---:|---:|
+| Unread mail | 0 | 0 |
+| Meetings today | 0 | 0 |
+| Overdue open tasks | 72 | 66 |
+
+`EA briefing test — overdue task (varun)`, due 2026-11-04, is in both overdue lists. Yesterday's test meeting is not in today's list. Keystone also shows two other tasks due 2026-11-04, including one titled `[team28a seed] Send revised quote to Ravi`. Those were not created by this login. Mail is still empty. Unit tests: 10 passed.
