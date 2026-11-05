@@ -6,7 +6,7 @@
 - meetings that overlap today in IST, excluding cancelled events
 - open tasks whose due date is before today
 
-It never calls send, reply, create, or booking tools. Tokens stay in gitignored `.token.suryodaya` and `.token.keystone` at the repository root. The written briefing stays in gitignored `28-ea/varun/briefings/`.
+It never calls send, reply, create, or booking tools. Tokens stay in this folder as `.token.suryodaya` and `.token.keystone`. The written briefing stays in `briefings/`. Both are ignored by `28-ea/varun/.gitignore`.
 
 ```bash
 python3 28-ea/varun/briefing.py

@@ -245,3 +245,7 @@ The task created on 4 November is due that day, so on 5 November it counts as ov
 | Overdue open tasks | 72 | 66 |
 
 `EA briefing test — overdue task (varun)`, due 2026-11-04, is in both overdue lists. Yesterday's test meeting is not in today's list. Keystone also shows two other tasks due 2026-11-04, including one titled `[team28a seed] Send revised quote to Ravi`. Those were not created by this login. Mail is still empty. Unit tests: 10 passed.
+
+## Step 11. Keep every change inside 28-ea/varun
+
+The root `.gitignore` goes back to the course text. Ignore rules for `briefings/`, `.token.*`, and `.local/` now live in `28-ea/varun/.gitignore`. The token files live in this folder. `briefing.py` reads them from here.
