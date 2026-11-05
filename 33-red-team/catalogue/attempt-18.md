@@ -1,9 +1,9 @@
-# Attempt 18 — EmailAccount.list
+# Attempt 18 — Malformed token
 
-1. **Attempt:** List email accounts (`EmailAccount.list`).
-2. **Boundary:** (Permission) Only own email accounts; no other user's account configuration.
+1. **Attempt:** Call the MCP endpoint with a malformed bearer token.
+2. **Boundary:** (Auth) Authentication.
 3. **Steps:**
-   1. `tools/call` `EmailAccount.list` `{limit:1000}`.
-4. **Expected:** Empty or own-scope only.
-5. **Actual:** HTTP 200, empty list for this seat (no foreign accounts disclosed).
+   1. `POST /api/mcp` with `Authorization: Bearer garbage`.
+4. **Expected:** 401.
+5. **Actual:** HTTP 401 `{"detail":"Authentication required"}`.
 6. **Result:** Held

@@ -1,10 +1,9 @@
-# Attempt 13 — ProjectResource*.list (projects scope)
+# Attempt 13 — Company.get (foreign id)
 
-1. **Attempt:** List project resource allocations/profiles available to Seat 33.
-2. **Boundary:** (Permission) Projects are in grant; results must stay own-company scoped (no peer company projects).
+1. **Attempt:** Fetch a company by an id from the other instance (`Company.get`).
+2. **Boundary:** (Other company) A foreign company id must not resolve.
 3. **Steps:**
-   1. Confirm `ProjectResourceAllocation.list` / `ProjectResourceProfile.list` in `tools/list`.
-   2. `tools/call` `ProjectResourceAllocation.list` `{}`.
-4. **Expected:** Empty or own-scope only.
-5. **Actual:** HTTP 200, empty list (`data: []`, `total: 0`). No foreign project rows disclosed.
-6. **Result:** Held
+   1. `tools/call` `Company.get` `{id:<id from other instance>}`.
+4. **Expected:** Not found / denied.
+5. **Actual:** HTTP 200 isError, `-32004` "Company not found" (`not_found`). The id came from the other instance, which is a separate system, so that company does not exist on Suryodaya. `not_found` is the expected answer either way.
+6. **Result:** Unclear — needs the id of another company on the same instance, which our login cannot see.

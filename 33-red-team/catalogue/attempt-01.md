@@ -6,5 +6,5 @@
    1. Authenticate; get a bearer token.
    2. `tools/call` `IPPool.list` `{limit:5}`.
 4. **Expected:** 403 / out of scope.
-5. **Actual:** HTTP 200. Returned this tenant's IP pools with `pool_health`, `daily_cap`, `assignment_priority`. Tenant-scoped; `write:false`. Pool names redacted in the public finding.
+5. **Actual:** HTTP 200. Returned this tenant's IP pools (e.g. "System Spare (reputation failover)", "System Quarantine") with `pool_health`, `daily_cap`, `assignment_priority`. Tenant-scoped; `write:false`.
 6. **Result:** Broke — see `../findings/BUG-33-001.md`

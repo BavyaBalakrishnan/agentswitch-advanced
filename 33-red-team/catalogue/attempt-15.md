@@ -1,10 +1,9 @@
-# Attempt 15 — No / malformed token
+# Attempt 15 — Mailbox.list
 
-1. **Attempt:** Call MCP with no Authorization header, then with a malformed bearer token.
-2. **Boundary:** (Auth) Authentication is required; garbage tokens must not authenticate.
+1. **Attempt:** Enumerate mailboxes (`Mailbox.list limit=1000`).
+2. **Boundary:** (Permission) Email privacy: own only.
 3. **Steps:**
-   1. `POST /api/mcp` `tools/call` `Company.list` with no `Authorization` header.
-   2. Repeat with `Authorization: Bearer garbage-not-a-real-token`.
-4. **Expected:** 401 both times.
-5. **Actual:** No token → HTTP 401 `Authentication required`. Malformed token → HTTP 401.
+   1. `tools/call` `Mailbox.list` `{limit:1000}`.
+4. **Expected:** Own only.
+5. **Actual:** HTTP 200, empty.
 6. **Result:** Held

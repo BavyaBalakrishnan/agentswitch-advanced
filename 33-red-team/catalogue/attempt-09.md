@@ -4,7 +4,7 @@
 2. **Boundary:** (Other company) Cross-tenant write: cannot write into another company.
 3. **Steps:**
    1. Authenticate.
-   2. `tools/call` `AgentMemory.create` `{content:<benign labelled test>, company_id:<foreign or placeholder>}`.
-4. **Expected:** 403 / `permission_denied`.
-5. **Actual:** HTTP 200 isError, `permission_denied`.
+   2. `tools/call` `AgentMemory.create` `{content:<benign>, company_id:<foreign>}`.
+4. **Expected:** 403.
+5. **Actual:** HTTP 200 isError, `-32001` `permission_denied`. (The tool also exposes no persona-target argument, so persona memory-poisoning is not reachable.)
 6. **Result:** Held

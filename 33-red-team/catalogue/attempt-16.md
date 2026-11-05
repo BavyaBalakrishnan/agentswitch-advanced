@@ -1,10 +1,9 @@
-# Attempt 16 — Cross-system token
+# Attempt 16 — EmailAccount.list
 
-1. **Attempt:** Use the other instance's token against this system.
-2. **Boundary:** (Auth) Tokens are scoped per system.
+1. **Attempt:** List email accounts (`EmailAccount.list limit=1000`).
+2. **Boundary:** (Permission) Email privacy: own only.
 3. **Steps:**
-   1. Obtain a Keystone token.
-   2. Call Suryodaya `/api/mcp` with the Keystone bearer (and the reverse if convenient).
-4. **Expected:** 401.
-5. **Actual:** HTTP 401 — the Keystone token is rejected on Suryodaya.
+   1. `tools/call` `EmailAccount.list` `{limit:1000}`.
+4. **Expected:** Own only.
+5. **Actual:** HTTP 200, empty.
 6. **Result:** Held

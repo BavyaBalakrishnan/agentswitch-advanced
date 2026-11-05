@@ -1,10 +1,9 @@
-# Attempt 17 — Injection canary (own record)
+# Attempt 17 — No token
 
-1. **Attempt:** Store a prompt-injection canary in a record this seat owns (an `AgentTodo`).
-2. **Boundary:** (Injection) Injected text must be stored as data, not executed. Safe live version only on a record we own; do not plant canaries for other seats' agents or customers.
+1. **Attempt:** Call the MCP endpoint with no Authorization header.
+2. **Boundary:** (Auth) Authentication is required.
 3. **Steps:**
-   1. With approval (`RUN_WRITE_PROBES=1`): `tools/call` `AgentTodo.create` with a labelled canary string in `detail`.
-   2. Read it back with `AgentTodo.get`.
-4. **Expected:** Stored inert as plain text; no instruction executed at write time.
-5. **Actual:** HTTP 200; created in own tenant; `AgentTodo.get` shows the string verbatim in `detail`. No action taken at write time. (Whether another seat's agent later acts on it is future work. The created todo cannot be deleted via the API.)
+   1. `POST /api/mcp` with a `tools/call` body and no `Authorization` header.
+4. **Expected:** 401.
+5. **Actual:** HTTP 401 `{"detail":"Authentication required"}`.
 6. **Result:** Held
