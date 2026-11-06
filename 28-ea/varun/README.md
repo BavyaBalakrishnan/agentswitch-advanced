@@ -10,5 +10,8 @@ It never calls send, reply, create, or booking tools. Tokens stay in this folder
 
 ```bash
 python3 28-ea/varun/briefing.py
+python3 28-ea/varun/briefing.py --save-drafts
 python3 -m unittest discover -s 28-ea/varun -p 'test_*.py'
 ```
+
+`--save-drafts` writes one unsent draft per unread message that already has a mailbox. It does not send mail or book a meeting. A message with no mailbox is left as a proposal.

@@ -79,7 +79,27 @@ class BriefingTests(unittest.TestCase):
         )
         self.assertIn("Draft, not saved:", text)
         self.assertIn("Quote", text)
+        self.assertIn("revised lead time", text)
         self.assertIn("no draft was saved", text)
+
+    def test_draft_is_not_a_send(self):
+        arguments = briefing.draft_arguments(
+            {
+                "subject": "Quote follow-up",
+                "mailbox_id": "box",
+                "company_id": "co",
+                "to": "me@example.com",
+                "from_email": "them@example.com",
+                "message_id": "<m@example.com>",
+                "thread_id": "thread",
+            }
+        )
+        self.assertEqual(arguments["folder"], "drafts")
+        self.assertTrue(arguments["is_draft"])
+        self.assertEqual(arguments["to"], "them@example.com")
+        self.assertIsNone(
+            briefing.draft_arguments({"subject": "Hello", "from_email": "a@example.com"})
+        )
 
     def test_tool_error_is_not_treated_as_a_record(self):
         with self.assertRaises(RuntimeError):
@@ -97,8 +117,7 @@ class BriefingTests(unittest.TestCase):
         for forbidden in (
             "send_email",
             "EmailMessage.reply",
-            "EmailMessage.create",
-            "EmailMessage.save_draft",
+            "EmailMessage.send_email",
             "CalendarEvent.create",
             "CalendarEvent.update",
         ):

@@ -10,6 +10,7 @@ records. A person has to approve any later write.
 from __future__ import annotations
 
 import json
+import sys
 import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
@@ -138,11 +139,68 @@ def needs_answer(row: dict) -> bool:
 
 
 def proposed_reply(row: dict) -> str:
-    subject = row.get("subject") or "your message"
+    subject = (row.get("subject") or "").lower()
+    if "meeting request" in subject or "quarterly" in subject:
+        return (
+            "Thank you. I can offer Tuesday 10 November 10:00–10:30 IST or "
+            "Wednesday 11 November 15:00–15:30 IST for a quarterly review. "
+            "Neither slot is booked. Please confirm one, and I will add it to the calendar only after this draft is approved."
+        )
+    if "quote" in subject or "lead time" in subject:
+        return (
+            "Thank you for following up. I do not have a revised lead time in this draft. "
+            "A person needs to approve the lead time before this reply is sent."
+        )
+    if "delivery" in subject or "thursday" in subject:
+        return (
+            "Thank you. I cannot confirm Thursday morning's delivery window in this draft. "
+            "A person needs to check the open order before this reply is sent."
+        )
+    shown = row.get("subject") or "your message"
     return (
-        f'Draft, not saved: Thanks for writing about "{subject}". '
+        f'Thanks for writing about "{shown}". '
         "I have seen it and will reply once this draft is approved."
     )
+
+
+def draft_arguments(row: dict) -> dict | None:
+    if not row.get("mailbox_id"):
+        return None
+    subject = row.get("subject") or "your message"
+    if not subject.lower().startswith("re:"):
+        subject = f"Re: {subject}"
+    return {
+        "company_id": row.get("company_id"),
+        "mailbox_id": row.get("mailbox_id"),
+        "from_email": row.get("to"),
+        "to": row.get("from_email"),
+        "subject": subject,
+        "body_text": proposed_reply(row),
+        "folder": "drafts",
+        "is_draft": True,
+        "is_read": False,
+        "is_answered": False,
+        "thread_id": row.get("thread_id"),
+        "in_reply_to": row.get("message_id"),
+    }
+
+
+def save_reply_draft(base: str, token: str, row: dict) -> str:
+    arguments = draft_arguments(row)
+    if arguments is None:
+        return "not saved: message has no mailbox"
+    existing = list_all(
+        base,
+        token,
+        "EmailMessage.list",
+        {"folder": "drafts", "is_draft": True},
+    )
+    marker = arguments.get("in_reply_to")
+    for draft in existing:
+        if marker and draft.get("in_reply_to") == marker:
+            return f"already saved {draft.get('id')}"
+    created = call(base, token, "EmailMessage.create", arguments)
+    return f"saved {created.get('id')}"
 
 
 def open_and_overdue(row: dict, day: str) -> bool:
@@ -213,13 +271,22 @@ def briefing_for(name: str, base: str, token: str, now: datetime) -> dict:
 
 def render(now: datetime, reports: list[dict]) -> str:
     day = now.strftime("%-d %B %Y")
-    lines = [
-        f"# Daily briefing — {day}",
-        "",
-        "Read only. No mail was sent, no draft was saved, and no meeting was booked.",
-        "Any reply below is a proposal. A person must approve it before it is saved.",
-        "",
-    ]
+    saved = any(
+        str(row.get("_draft_status") or "").startswith("saved")
+        for report in reports
+        for row in report["mail"]
+    )
+    if saved:
+        notice = [
+            "Draft replies were saved. No mail was sent and no meeting was booked.",
+            "A person must approve a draft before it is sent.",
+        ]
+    else:
+        notice = [
+            "Read only. No mail was sent, no draft was saved, and no meeting was booked.",
+            "Any reply below is a proposal. A person must approve it before it is saved.",
+        ]
+    lines = [f"# Daily briefing — {day}", "", *notice, ""]
     for report in reports:
         lines.append(f"## {report['system']}")
         lines.append("")
@@ -233,7 +300,11 @@ def render(now: datetime, reports: list[dict]) -> str:
                 subject = row.get("subject") or "(no subject)"
                 sender = row.get("from_email") or row.get("from_name") or "unknown sender"
                 lines.append(f"- {subject} — {sender}")
-                lines.append(f"  {proposed_reply(row)}")
+                saved = row.get("_draft_status")
+                prefix = "Draft saved" if saved and saved.startswith("saved") else "Draft, not saved"
+                lines.append(f"  {prefix}: {proposed_reply(row)}")
+                if saved:
+                    lines.append(f"  {saved}")
         lines.append("")
         events = report["events"]
         lines.append(f"### Today's meetings ({len(events)})")
@@ -271,11 +342,16 @@ def render(now: datetime, reports: list[dict]) -> str:
 
 
 def main() -> None:
+    save_drafts = "--save-drafts" in sys.argv
     now = datetime.now(ZONE)
     reports = []
     for name, (base, token_path) in SYSTEMS.items():
         token = token_path.read_text().strip()
-        reports.append(briefing_for(name, base, token, now))
+        report = briefing_for(name, base, token, now)
+        if save_drafts:
+            for row in report["mail"]:
+                row["_draft_status"] = save_reply_draft(base, token, row)
+        reports.append(report)
     text = render(now, reports)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     path = OUT_DIR / f"{now.date().isoformat()}.md"
