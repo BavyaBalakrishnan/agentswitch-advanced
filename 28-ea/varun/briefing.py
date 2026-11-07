@@ -2,9 +2,10 @@
 """Daily briefing for seat 28.
 
 Reads unread inbox mail that still needs an answer, today's meetings, and
-overdue open tasks on Suryodaya and Keystone. Prints a proposed reply for
-each such message. Does not save drafts, send mail, book events, or delete
-records. A person has to approve any later write.
+overdue open tasks on Suryodaya and Keystone. By default it saves one unsent
+draft reply for each such message that already has a mailbox. It never sends
+mail, books a meeting, or deletes a record. A person has to approve a draft
+before it is sent. Pass --read-only to print proposals without saving.
 """
 
 from __future__ import annotations
@@ -138,13 +139,55 @@ def needs_answer(row: dict) -> bool:
     return folder == "inbox"
 
 
+def slot_label(start: datetime, end: datetime) -> str:
+    return (
+        f"{start.strftime('%A')} {start.day} {start.strftime('%B')} "
+        f"{start.strftime('%H:%M')}–{end.strftime('%H:%M')} IST"
+    )
+
+
+def free_slots(now: datetime, events: list[dict], count: int = 2) -> list[tuple[datetime, datetime]]:
+    """Next weekday 30-minute slots at 10:00 or 15:00 IST that do not overlap an event."""
+    busy: list[tuple[datetime, datetime]] = []
+    for row in events:
+        if str(row.get("status") or "").lower() == "cancelled":
+            continue
+        begins = parse_when(row.get("start_at"))
+        finishes = parse_when(row.get("end_at")) or begins
+        if begins and finishes and finishes > begins:
+            busy.append((begins, finishes))
+    found: list[tuple[datetime, datetime]] = []
+    day = (now.astimezone(ZONE) + timedelta(days=1)).date()
+    for _ in range(21):
+        if day.weekday() < 5:
+            for hour in (10, 15):
+                start = datetime(day.year, day.month, day.day, hour, 0, tzinfo=ZONE)
+                end = start + timedelta(minutes=30)
+                if start <= now:
+                    continue
+                if any(start < finish and end > begin for begin, finish in busy):
+                    continue
+                found.append((start, end))
+                if len(found) == count:
+                    return found
+        day += timedelta(days=1)
+    return found
+
+
 def proposed_reply(row: dict) -> str:
     subject = (row.get("subject") or "").lower()
     if "meeting request" in subject or "quarterly" in subject:
+        slots = row.get("_free_slots") or []
+        if len(slots) >= 2:
+            first, second = slot_label(*slots[0]), slot_label(*slots[1])
+            return (
+                "Thank you. These times are free on the calendar and are not booked: "
+                f"{first}, or {second}. Please confirm one, and I will add it to the "
+                "calendar only after this draft is approved."
+            )
         return (
-            "Thank you. I can offer Tuesday 10 November 10:00–10:30 IST or "
-            "Wednesday 11 November 15:00–15:30 IST for a quarterly review. "
-            "Neither slot is booked. Please confirm one, and I will add it to the calendar only after this draft is approved."
+            "Thank you. I will check the calendar and propose two free times after "
+            "this draft is approved. Nothing is booked."
         )
     if "quote" in subject or "lead time" in subject:
         return (
@@ -169,7 +212,7 @@ def draft_arguments(row: dict) -> dict | None:
     subject = row.get("subject") or "your message"
     if not subject.lower().startswith("re:"):
         subject = f"Re: {subject}"
-    return {
+    arguments = {
         "company_id": row.get("company_id"),
         "mailbox_id": row.get("mailbox_id"),
         "from_email": row.get("to"),
@@ -180,9 +223,26 @@ def draft_arguments(row: dict) -> dict | None:
         "is_draft": True,
         "is_read": False,
         "is_answered": False,
-        "thread_id": row.get("thread_id"),
-        "in_reply_to": row.get("message_id"),
     }
+    if row.get("thread_id"):
+        arguments["thread_id"] = row["thread_id"]
+    if isinstance(row.get("message_id"), str) and row["message_id"]:
+        arguments["in_reply_to"] = row["message_id"]
+    if isinstance(arguments["to"], list):
+        arguments["to"] = arguments["to"][0].get("email") if arguments["to"] else ""
+    return arguments
+
+
+def same_draft(draft: dict, row: dict, arguments: dict) -> bool:
+    marker = arguments.get("in_reply_to")
+    if marker and draft.get("in_reply_to") == marker:
+        return True
+    return bool(
+        not marker
+        and row.get("thread_id")
+        and draft.get("thread_id") == row.get("thread_id")
+        and (draft.get("subject") or "") == arguments["subject"]
+    )
 
 
 def save_reply_draft(base: str, token: str, row: dict) -> str:
@@ -195,9 +255,16 @@ def save_reply_draft(base: str, token: str, row: dict) -> str:
         "EmailMessage.list",
         {"folder": "drafts", "is_draft": True},
     )
-    marker = arguments.get("in_reply_to")
     for draft in existing:
-        if marker and draft.get("in_reply_to") == marker:
+        if same_draft(draft, row, arguments):
+            if (draft.get("body_text") or "") != arguments["body_text"]:
+                updated = call(
+                    base,
+                    token,
+                    "EmailMessage.update",
+                    {"id": draft["id"], "body_text": arguments["body_text"]},
+                )
+                return f"updated {updated.get('id') or draft.get('id')}"
             return f"already saved {draft.get('id')}"
     created = call(base, token, "EmailMessage.create", arguments)
     return f"saved {created.get('id')}"
@@ -238,6 +305,27 @@ def briefing_for(name: str, base: str, token: str, now: datetime) -> dict:
         )
         if needs_answer(row)
     ]
+    horizon = now + timedelta(days=21)
+    upcoming = [
+        row
+        for row in list_all(
+            base,
+            token,
+            "CalendarEvent.list",
+            {
+                "start_at": (
+                    f"between:{now.strftime('%Y-%m-%dT%H:%M:%S')}+05:30,"
+                    f"{horizon.strftime('%Y-%m-%dT%H:%M:%S')}+05:30"
+                ),
+                "sort_by": "start_at",
+                "sort_order": "asc",
+            },
+        )
+        if parse_when(row.get("start_at")) is not None
+    ]
+    slots = free_slots(now, upcoming)
+    for row in mail:
+        row["_free_slots"] = slots
     events = [
         row
         for row in list_all(
@@ -272,7 +360,7 @@ def briefing_for(name: str, base: str, token: str, now: datetime) -> dict:
 def render(now: datetime, reports: list[dict]) -> str:
     day = now.strftime("%-d %B %Y")
     saved = any(
-        str(row.get("_draft_status") or "").startswith("saved")
+        str(row.get("_draft_status") or "").startswith(("saved", "updated", "already saved"))
         for report in reports
         for row in report["mail"]
     )
@@ -300,8 +388,12 @@ def render(now: datetime, reports: list[dict]) -> str:
                 subject = row.get("subject") or "(no subject)"
                 sender = row.get("from_email") or row.get("from_name") or "unknown sender"
                 lines.append(f"- {subject} — {sender}")
-                saved = row.get("_draft_status")
-                prefix = "Draft saved" if saved and saved.startswith("saved") else "Draft, not saved"
+                saved = str(row.get("_draft_status") or "")
+                prefix = (
+                    "Draft saved"
+                    if saved.startswith(("saved", "updated", "already saved"))
+                    else "Draft, not saved"
+                )
                 lines.append(f"  {prefix}: {proposed_reply(row)}")
                 if saved:
                     lines.append(f"  {saved}")
@@ -342,7 +434,7 @@ def render(now: datetime, reports: list[dict]) -> str:
 
 
 def main() -> None:
-    save_drafts = "--save-drafts" in sys.argv
+    save_drafts = "--read-only" not in sys.argv
     now = datetime.now(ZONE)
     reports = []
     for name, (base, token_path) in SYSTEMS.items():
@@ -350,7 +442,10 @@ def main() -> None:
         report = briefing_for(name, base, token, now)
         if save_drafts:
             for row in report["mail"]:
-                row["_draft_status"] = save_reply_draft(base, token, row)
+                try:
+                    row["_draft_status"] = save_reply_draft(base, token, row)
+                except RuntimeError as err:
+                    row["_draft_status"] = f"not saved: {err}"
         reports.append(report)
     text = render(now, reports)
     OUT_DIR.mkdir(parents=True, exist_ok=True)

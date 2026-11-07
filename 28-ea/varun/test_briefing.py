@@ -112,16 +112,57 @@ class BriefingTests(unittest.TestCase):
                 "Task.create",
             )
 
+    def test_free_slots_skip_a_busy_time(self):
+        busy = datetime(2026, 11, 9, 10, 0, tzinfo=briefing.ZONE)
+        slots = briefing.free_slots(
+            datetime(2026, 11, 7, 12, 0, tzinfo=briefing.ZONE),
+            [
+                {
+                    "start_at": "2026-11-09T10:00:00+05:30",
+                    "end_at": "2026-11-09T10:30:00+05:30",
+                    "status": "confirmed",
+                }
+            ],
+        )
+        self.assertEqual(len(slots), 2)
+        self.assertNotIn(busy, [start for start, _end in slots])
+        self.assertGreater(slots[0][0], datetime(2026, 11, 7, 12, 0, tzinfo=briefing.ZONE))
+
+    def test_meeting_reply_uses_only_free_slots(self):
+        text = briefing.proposed_reply(
+            {
+                "subject": "Meeting request: quarterly review",
+                "_free_slots": [
+                    (
+                        datetime(2026, 11, 9, 15, 0, tzinfo=briefing.ZONE),
+                        datetime(2026, 11, 9, 15, 30, tzinfo=briefing.ZONE),
+                    ),
+                    (
+                        datetime(2026, 11, 12, 10, 0, tzinfo=briefing.ZONE),
+                        datetime(2026, 11, 12, 10, 30, tzinfo=briefing.ZONE),
+                    ),
+                ],
+            }
+        )
+        self.assertIn("Monday 9 November 15:00–15:30 IST", text)
+        self.assertIn("Thursday 12 November 10:00–10:30 IST", text)
+        self.assertIn("not booked", text)
+        empty = briefing.proposed_reply({"subject": "Meeting request: quarterly review"})
+        self.assertNotIn("November", empty)
+
     def test_script_never_sends_or_books(self):
         source = Path(briefing.__file__).read_text()
         for forbidden in (
             "send_email",
             "EmailMessage.reply",
             "EmailMessage.send_email",
+            "endpoint.email.messages.send",
             "CalendarEvent.create",
             "CalendarEvent.update",
         ):
             self.assertNotIn(forbidden, source)
+        self.assertNotIn("10 November", source)
+        self.assertNotIn("11 November", source)
 
 
 if __name__ == "__main__":
