@@ -164,6 +164,8 @@ chased as if it were our bug.
 Inside the announced scope, so treat as provisional and re-check after deploy:
 
 - the two notice-period fields that disagree on 121 of 124 contracts
+  (re-checked 9 Nov: unchanged, and no longer believed to be a defect -
+  see the correction below)
 - the due-date rule (end date minus notice period)
 - the stored days-to-expiry value, checked sound on all 124
 
@@ -211,17 +213,39 @@ Recorded here rather than silently corrected above.
 
 ### What this settles
 
-Release 16's announced scope included contract reminders, so the two
-disagreeing notice-period fields might have been fixed by it. They were not.
-The disagreement is still present on 121 of 124 contracts when measured
-three days after the release went live.
+The contract figures are stable across the release, so the calendar can be
+built on them.
 
-That moves it from a provisional finding to a confirmed one, and it is the
-strongest form in which to report it: measured after the fix that might have
-addressed it, against a recorded pre-release baseline.
+### Correction: the two notice periods are not a defect
+
+Earlier notes in this file treated the two notice-period fields disagreeing
+on 121 of 124 contracts as a platform defect, and planned to report it once
+Release 16 had been ruled out as the fix. That was wrong, and it is withdrawn
+rather than quietly dropped.
+
+A contract can legitimately require 60 days of notice to renew and 90 days to
+terminate. Those are different actions with different deadlines. Two fields
+holding different numbers is correct modelling, not two gates disagreeing.
+
+The mistake was pattern-matching. A recurring lesson from the previous seat
+was that two fields answering the same question will eventually disagree and
+the disagreement surfaces as a problem nobody owns. That lesson is sound, but
+it only applies when the two fields really are answering the same question.
+Here they are answering different ones, and the pattern was applied without
+checking that first.
+
+What remains is a design decision, not a bug: which deadline the calendar
+reports. It reports both, as separate rows naming the action, because an
+owner needs warning of whichever falls first.
+
+One related question is genuinely open and has not been tested: whether the
+platform's own contract-reminder feature picks one of the two periods. If it
+silently picks one, that would be a real defect. We have not checked, and are
+not reporting it as one.
 
 The tax findings were outside the release's announced scope and are
-unaffected by this re-check.
+unaffected by this re-check. Three of them were re-verified on 9 November
+after the release and all three persist.
 
 ### Note on method
 
