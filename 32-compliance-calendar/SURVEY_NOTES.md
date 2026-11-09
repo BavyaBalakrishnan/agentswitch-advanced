@@ -238,10 +238,33 @@ What remains is a design decision, not a bug: which deadline the calendar
 reports. It reports both, as separate rows naming the action, because an
 owner needs warning of whichever falls first.
 
-One related question is genuinely open and has not been tested: whether the
-platform's own contract-reminder feature picks one of the two periods. If it
-silently picks one, that would be a real defect. We have not checked, and are
-not reporting it as one.
+### The reminder question, now tested
+
+The open question was whether the platform's own reminder feature picks one
+of the two notice periods. It was tested on 9 November. It picks neither.
+
+`ContractPreferences.renewal_reminder_days` is a single company-wide value
+of 60, and the Contract entity carries no per-contract override. Every
+contract is reminded 60 days before its end date regardless of the notice
+period it actually requires.
+
+On Keystone every one of the 24 contracts requires 90 days of termination
+notice, so the deadline falls 90 days before the end date and the reminder
+arrives 60 days before it. The reminder fires 30 days after the deadline it
+exists to warn about, on all 24 contracts including all 10 active ones. On
+Suryodaya the same defect affects 1 of 100.
+
+A second defect turned up beside it: `is_expiring_soon` is false on all 24
+Keystone contracts, including the five whose status field reads
+`expiring_soon`, one of which expires today.
+
+Both are filed. Both were measured after release 16 went live, and release
+16 listed contract reminders in its scope.
+
+This is worth noting as a method point. The withdrawn finding was wrong, but
+the question it left behind was the one that found the real defect. Writing
+down "we have not checked this" is what made it findable later; deleting the
+withdrawn claim outright would have taken the open question with it.
 
 The tax findings were outside the release's announced scope and are
 unaffected by this re-check. Three of them were re-verified on 9 November
