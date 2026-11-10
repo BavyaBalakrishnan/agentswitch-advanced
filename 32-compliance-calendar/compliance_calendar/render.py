@@ -31,7 +31,8 @@ def _row(item, today):
         _cell(item.owner), item.system, _cell(item.basis))
 
 
-def render(today, window_days, sections, statuses, skipped=()):
+def render(today, window_days, sections, statuses, skipped=(),
+           include_pending=True):
     out = []
     out.append("# Compliance calendar - next %d days" % window_days)
     out.append("")
@@ -45,12 +46,23 @@ def render(today, window_days, sections, statuses, skipped=()):
                "confirmation.**" % TO_VERIFY)
     out.append("")
     out.append("Contract rows are computed as `due date = end date - notice "
-               "period`, not from the end date itself. Contracts included: "
-               "status %s. A contract carries two notice periods, for "
-               "renewal and for termination, and they differ on almost "
-               "every record, so one contract can appear twice with "
-               "different dates."
-               % (", ".join(statuses) if statuses else "any"))
+               "period`, not from the end date itself.")
+    out.append("")
+    out.append("**Assumptions stated:** contracts with status %s are in the "
+               "main tables. A contract carries two notice periods, for "
+               "renewal and for termination; both are reported as separate "
+               "rows naming the action, because a termination deadline is "
+               "its own date and is not implied by the renewal one."
+               % (", ".join("`%s`" % s for s in statuses) if statuses else "any"))
+    out.append("")
+    if include_pending:
+        out.append("Contracts awaiting approval are **not yet in force**, so "
+                   "their deadlines are provisional. They appear in their own "
+                   "section, never mixed into the tables above.")
+    else:
+        out.append("Contracts awaiting approval are **excluded** from this "
+                   "run. Re-run without `--no-pending` to list them "
+                   "separately.")
     out.append("")
 
     for title, items, empty_reason in sections:

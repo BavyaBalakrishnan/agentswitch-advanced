@@ -9,7 +9,8 @@ from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from compliance_calendar.contracts import contract_items
+from compliance_calendar.contracts import (contract_items, LIVE_STATUSES,
+                                           PENDING_STATUSES)
 from compliance_calendar.statutory import statutory_items, _deposit_due
 from compliance_calendar.model import UNASSIGNED
 
@@ -49,6 +50,27 @@ class ContractRule(unittest.TestCase):
     def test_non_live_status_is_excluded(self):
         due, _, _ = contract_items([contract(status="draft")], "suryodaya", TODAY)
         self.assertEqual(due, [])
+
+    def test_expiring_soon_is_in_scope(self):
+        # The platform's own is_expiring_soon flag requires status active, so
+        # every expiring_soon contract fails it and is never flagged there.
+        # They must not be missed here as well.
+        due, _, _ = contract_items([contract(status="expiring_soon")],
+                                   "suryodaya", TODAY)
+        self.assertEqual(len(due), 2)
+
+    def test_default_scope_is_active_and_expiring_soon(self):
+        self.assertEqual(set(LIVE_STATUSES), {"active", "expiring_soon"})
+
+    def test_pending_approval_is_not_in_the_main_table(self):
+        due, _, _ = contract_items([contract(status="pending_approval")],
+                                   "suryodaya", TODAY)
+        self.assertEqual(due, [])
+
+    def test_pending_approval_is_reported_when_asked_for(self):
+        due, _, _ = contract_items([contract(status="pending_approval")],
+                                   "suryodaya", TODAY, statuses=PENDING_STATUSES)
+        self.assertEqual(len(due), 2)
 
     def test_missed_deadline_on_a_running_contract_is_reported_not_dropped(self):
         # Ends in 20 days, needed 90 days notice: the window shut long ago.

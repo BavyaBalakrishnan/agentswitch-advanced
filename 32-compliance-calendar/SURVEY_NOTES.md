@@ -278,3 +278,74 @@ again, then "not live, no date set", then "live since 6 November". Taking any
 single notice at face value would have given the wrong answer about whether
 the platform had changed. Re-measuring against a dated baseline gave the
 right one regardless of which notice was current. Keep doing that.
+
+## Course team response to the five bug reports - 9 Nov 2026
+
+All five confirmed against live data and code. Two of them corrected our
+account of the cause, and one of those corrections was our own error rather
+than a difference of reading.
+
+| id | verdict | in the next release |
+|---|---|---|
+| efe134ed rent threshold stored as annual | confirmed | no |
+| bb192de2 jurisdiction ids do not resolve | confirmed, cause corrected | yes |
+| d9ea7033 validity stored twice | confirmed | yes |
+| 51e44831 contract reminder | half confirmed, our error | yes |
+| e05dd7f5 is_expiring_soon false on all | confirmed | yes |
+
+### Our error on 51e44831
+
+We reported that the reminder sweep uses a single company-wide 60 days and
+ignores each contract's own notice period. That is wrong. The sweep does use
+each contract's own renewal notice days. What it ignores is the TERMINATION
+notice, so that deadline is never warned on at all.
+
+The real defect is narrower than we claimed and still real.
+
+Why we got it wrong, because the shape of the mistake matters more than the
+mistake. On Keystone every contract holds renewal notice 60, and the
+company-wide preference is also 60. The same number. A sweep reading each
+contract and a sweep reading the global default therefore produce identical
+output on Keystone, and no observation there can separate them.
+
+Suryodaya spreads renewal notice across 46 distinct values from 1 to 90. The
+two explanations predict completely different behaviour there, and we had
+that data in hand the whole time. We built the theory on the system where it
+could not be falsified and never tested it on the system where it could.
+
+A coincidence of two equal numbers was read as a mechanism. The check that
+would have caught it costs one line: before explaining a value, confirm the
+value varies.
+
+### The corrected cause on bb192de2
+
+We reported the TaxJurisdiction table as empty. It is not. It holds 40 rows,
+and they carry no company, so a tenant login sees none of them. The
+observation was right - our login genuinely sees an empty table and 83
+records pointing nowhere - but the cause is a missing tenant link, not
+missing data. We could not have seen the difference from our seat, which is
+itself the reason to describe what was observed and let the fix be diagnosed
+by someone who can see more.
+
+## The two scope decisions, settled
+
+Both answered by the course team on 9 November and implemented.
+
+1. Emit renewal and termination as separate rows. A termination deadline is
+   its own date. This is what the calendar already did.
+
+2. For the 15 November delivery the main tables carry `active` and
+   `expiring_soon`. Contracts awaiting approval are listed in their own
+   section as not yet in force, switchable with `--no-pending`. Both choices
+   are printed in the output as stated assumptions.
+
+Adding `expiring_soon` was not cosmetic. The Keystone missed-deadline
+section went from 1 row to 9. Three of those contracts end within the next
+month - 22 November, 29 November and 7 December - and on each one both the
+renewal and the termination window have already closed.
+
+Those contracts were invisible twice over: the platform never flagged them,
+because `is_expiring_soon` requires status `active` and these are status
+`expiring_soon`; and our own earlier default excluded them for the same
+reason. Two independent filters, the same blind spot, and the contracts
+nearest to expiry sitting inside it.

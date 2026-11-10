@@ -34,9 +34,20 @@ NOTICE_RULES = (
 )
 
 # Statuses that carry a live obligation. A draft has nothing to give notice
-# on and an expired contract is finished. Narrow by default, and the choice
-# is printed in the output so a reader knows what was left out.
-LIVE_STATUSES = ("active",)
+# on and an expired contract is finished.
+#
+# Set by the course team on 9 Nov 2026 for the 15 November delivery: active
+# AND expiring_soon in the main table. expiring_soon matters because the
+# platform's own is_expiring_soon flag requires status active, so every
+# expiring_soon contract fails it and the platform never flags them - which
+# is exactly why they must not be missed here too.
+LIVE_STATUSES = ("active", "expiring_soon")
+
+# Reported in their own section, labelled, never mixed into the table above.
+# A contract awaiting approval is not yet in force, so its notice deadlines
+# are provisional rather than binding - but they are close enough to matter
+# if approval lands.
+PENDING_STATUSES = ("pending_approval",)
 
 
 def _as_date(value):

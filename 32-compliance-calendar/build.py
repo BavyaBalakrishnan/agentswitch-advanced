@@ -18,7 +18,8 @@ import sys
 from datetime import date
 
 from compliance_calendar.client import Client, Unreachable
-from compliance_calendar.contracts import contract_items, LIVE_STATUSES
+from compliance_calendar.contracts import (contract_items, LIVE_STATUSES,
+                                           PENDING_STATUSES)
 from compliance_calendar.model import UNASSIGNED
 from compliance_calendar.render import render
 from compliance_calendar.statutory import statutory_items
@@ -37,6 +38,9 @@ def main(argv=None):
     ap.add_argument("--today", default=None, help="YYYY-MM-DD, for testing")
     ap.add_argument("--tds-owner", default=UNASSIGNED,
                     help="who owns the statutory TDS deadlines")
+    ap.add_argument("--no-pending", action="store_true",
+                    help="omit the separate 'not yet in force' section for "
+                         "contracts awaiting approval")
     ap.add_argument("--out", default=None, help="write here instead of stdout")
     args = ap.parse_args(argv)
 
@@ -66,12 +70,26 @@ def main(argv=None):
         sections.append(("%s - contracts (%d)" % (system.title(), len(due)),
                          due, None))
 
+        # Contracts awaiting approval are not yet in force, so their
+        # deadlines are provisional. They go in their own labelled section
+        # and are never mixed into the table above, because an owner acting
+        # on a deadline needs to know whether it binds.
+        if not args.no_pending:
+            pending, pending_overdue, _ = contract_items(
+                rows, system, today, args.days, PENDING_STATUSES)
+            sections.append((
+                "%s - NOT YET IN FORCE, awaiting approval (%d)"
+                % (system.title(), len(pending) + len(pending_overdue)),
+                pending + pending_overdue,
+                "No contracts awaiting approval fall due in this window."))
+
         tds, not_applicable = statutory_items(system, today, args.days,
                                               args.tds_owner)
         sections.append(("%s - statutory TDS (%d)" % (system.title(), len(tds)),
                          tds, not_applicable))
 
-    text = render(today, args.days, sections, statuses, all_skipped)
+    text = render(today, args.days, sections, statuses, all_skipped,
+                  include_pending=not args.no_pending)
 
     if args.out:
         with open(args.out, "w", encoding="utf-8") as fh:
