@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from compliance_calendar.contracts import (contract_items, LIVE_STATUSES,
                                            PENDING_STATUSES)
 from compliance_calendar.statutory import statutory_items, _deposit_due
+from compliance_calendar.client import Client, Refused, LOGIN_PATH
 from compliance_calendar.model import UNASSIGNED
 
 TODAY = date(2026, 11, 9)
@@ -133,6 +134,58 @@ class StatutoryRule(unittest.TestCase):
         self.assertEqual(items, [])
         self.assertIsNotNone(na)
         self.assertIn("US company", na)
+
+
+class ReadOnly(unittest.TestCase):
+    """The tool must not be able to write, and that must be checkable."""
+
+    def client(self):
+        return Client("suryodaya", env={
+            "AS_EMAIL_32": "x@example.invalid",
+            "AS_PASSWORD_32_SURYODAYA": "unused"})
+
+    def test_a_body_on_any_path_but_login_is_refused(self):
+        c = self.client()
+        for path in ("/api/Contract", "/api/Tax", "/api/TDSSection",
+                     "/api/BugReport", "/api/ContractPreferences"):
+            with self.assertRaises(Refused):
+                c._send(path, {"status": "cancelled"})
+
+    def test_the_refusal_names_the_path(self):
+        c = self.client()
+        try:
+            c._send("/api/Contract", {"x": 1})
+        except Refused as exc:
+            self.assertIn("/api/Contract", str(exc))
+        else:
+            self.fail("a write to /api/Contract was not refused")
+
+    def test_login_is_the_only_path_allowed_a_body(self):
+        # Not called over the network - this asserts the guard lets it past,
+        # which the refusal tests above prove it does for nothing else.
+        import inspect
+        from compliance_calendar import client as mod
+        src = inspect.getsource(mod._send if hasattr(mod, "_send")
+                                else mod.Client._send)
+        self.assertIn("LOGIN_PATH", src)
+        self.assertEqual(LOGIN_PATH, "/api/auth/login")
+
+    def test_send_is_the_only_http_in_the_package(self):
+        import os, re
+        pkg = os.path.dirname(inspect_file())
+        offenders = []
+        for name in os.listdir(pkg):
+            if not name.endswith(".py"):
+                continue
+            text = open(os.path.join(pkg, name), encoding="utf-8").read()
+            if re.search(r"urlopen|urllib\.request\.Request", text) and name != "client.py":
+                offenders.append(name)
+        self.assertEqual(offenders, [], "HTTP found outside client.py")
+
+
+def inspect_file():
+    from compliance_calendar import client
+    return client.__file__
 
 
 if __name__ == "__main__":

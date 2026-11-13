@@ -4,6 +4,11 @@ Read-only on purpose. This seat proposes and drafts; a person approves
 anything that changes a record. Nothing here issues a POST, PUT or DELETE,
 so the calendar cannot alter the data it reports on even by accident.
 
+Exactly one request in this file can send a POST: the login, at
+LOGIN_PATH. Every other request is a GET, and `_send` raises `Refused`
+if anything tries to attach a body to a non-login path. There is no
+other HTTP anywhere in the package.
+
 Credentials come from the environment and never from this repository.
 Set AS_EMAIL and AS_PASSWORD_SURYODAYA / AS_PASSWORD_KEYSTONE, or point
 AS_ENV_FILE at a file outside the repo holding them.
@@ -20,6 +25,23 @@ HOSTS = {
 
 PAGE = 500
 HARD_CAP = 20000
+
+# The ONLY path this client may POST to. Everything else is GET.
+#
+# The seat rule is that the agent proposes and a person approves anything
+# that changes a record, so this tool must not be able to write at all.
+# Leaving that to call-site discipline is not good enough: _send issues a
+# POST whenever it is handed a payload, so one future caller passing a body
+# by mistake turns a read-only tool into a writing one, silently.
+#
+# The guard in _send refuses that. A reviewer can confirm the whole
+# read-only claim by reading one function rather than auditing every call
+# site now and forever after.
+LOGIN_PATH = "/api/auth/login"
+
+
+class Refused(RuntimeError):
+    """A write was attempted. This client cannot write, by construction."""
 
 
 class Unreachable(RuntimeError):
@@ -104,6 +126,14 @@ class Client:
         return rows
 
     def _send(self, path, payload):
+        if payload is not None and path != LOGIN_PATH:
+            raise Refused(
+                "refusing to POST to %s. This client is read-only: the only "
+                "request that may carry a body is the login at %s. If a "
+                "change to a record is genuinely needed, a person makes it - "
+                "that is the seat rule, and this guard is what makes the "
+                "read-only claim checkable rather than merely intended."
+                % (path, LOGIN_PATH))
         url = self.base + path
         data = json.dumps(payload).encode() if payload is not None else None
         req = urllib.request.Request(url, data=data,
