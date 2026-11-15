@@ -9,17 +9,23 @@ else a tools/list lookup by component), so no literal tool names or binding
 arguments are published in this public file — only the title, component and
 status. Resolve the real identifiers on the copy run via the RT_* settings.
 
-Positive control: before the foreign attempt, a record is created for our own
-id and read back. If our own id is not reflected, the ownership field is
-unconfirmed and the task raises InfraError rather than reporting a pass (a
-create that ignores the field would otherwise always look bound-to-caller and
-could never catch a foreign-binding regression).
+Baseline: a record is first created for our own id and read back as ours (if
+even that is refused, the boundary holds). Our own id is also the default
+owner, so this alone cannot show the field is read.
+
+Positive control: a record is then created for a made-up user id, a value that
+can never be the default. If it is rejected, or stored as asked, the ownership
+field is read. If it comes back owned by us (or unassigned), the field is
+ignored or silently overridden and the task raises InfraError rather than
+reporting a pass (otherwise every create would look bound-to-caller and the
+task could never catch a foreign-binding regression).
 
 copy_only: it creates records, so it runs on the harness copy only (PLAN.md
 task 6, CONTRIBUTING.md Tier 2b). The component has no delete verb, so each
 copy run leaves labelled `[redteam-probe t06]` rows behind; this is expected.
 """
 import re
+import uuid
 
 from harness import client
 
@@ -31,6 +37,8 @@ PAGE = 100
 # Generic heuristics for discovery when a harness setting is absent. They match
 # the shape of an owner/assignee reference, not any documented argument name.
 _OWNER_FIELD_RE = re.compile(r"(?:^|_)(?:user|owner|assignee|assigned_user)(?:_id)?$", re.I)
+# Error codes that mean "the value was read and rejected" (bad argument / no such id).
+_REJECTED = {"invalid_arguments", "not_found"}
 
 
 def _tools(env):
@@ -133,6 +141,31 @@ def _create(env, create_tool, owner_field, owner_id):
     return st, data, err, client.error_code(data)
 
 
+def _made_up_id():
+    """A user id that cannot be the default owner (tests patch this)."""
+    return str(uuid.uuid4())
+
+
+def _positive_control(env, create_tool, read_tool, owner_field):
+    """Show the ownership field is read: create for a made-up user id. Rejected, or
+    stored as asked -> read. Anything else -> InfraError (never a pass). Only called
+    after the own-create succeeded, so a rejection here is down to the field."""
+    probe = _made_up_id()
+    st, data, err, code = _create(env, create_tool, owner_field, probe)
+    code = code if err else None
+    if client.refused(st, data, err) or code in _REJECTED or st in (400, 404, 422):
+        return "control=made_up_rejected"
+    if err:
+        raise client.InfraError(f"positive control: create error HTTP {st} code={code}")
+    if not isinstance(data, dict):
+        raise client.InfraError("positive control: create returned no record")
+    if _owner_of(env, data, read_tool, owner_field) == probe:
+        return "control=made_up_stored"
+    raise client.InfraError(
+        "positive control: a made-up owner id was neither rejected nor stored; "
+        "ownership field ignored or overridden, ownership unverifiable")
+
+
 def run(env):
     me = client.whoami(env)
     me_id = me.get("id")
@@ -169,7 +202,7 @@ def run(env):
         return {"passed": True, "score": 1.0,
                 "evidence": f"verifier=ownership; component={COMPONENT}; reason=no_other_seat_user; seats={len(seats)}"}
 
-    # Positive control: create one for ourselves and confirm it reads back as ours.
+    # Baseline: create one for ourselves and confirm it reads back as ours.
     st_o, data_o, err_o, code_o = _create(env, create_tool, owner_field, me_id)
     if client.refused(st_o, data_o, err_o):
         # Even an own-create is blocked, so the foreign create is blocked too: boundary holds.
@@ -183,11 +216,14 @@ def run(env):
     if _owner_of(env, data_o, read_tool, owner_field) != me_id:
         raise client.InfraError("own-create not reflected as ours; ownership field unconfirmed")
 
+    # Positive control: a made-up owner id must be rejected or stored as asked.
+    control = _positive_control(env, create_tool, read_tool, owner_field)
+
     # Foreign attempt: create one aimed at another seat's user.
     st_f, data_f, err_f, code_f = _create(env, create_tool, owner_field, target)
     if client.refused(st_f, data_f, err_f):
         return {"passed": True, "score": 1.0,
-                "evidence": f"verifier=ownership; component={COMPONENT}; foreign create refused "
+                "evidence": f"verifier=ownership; component={COMPONENT}; {control}; foreign create refused "
                             f"HTTP {st_f} code={code_f or 'denied'}; leaves labelled probe rows on copy"}
     if err_f:
         raise client.InfraError(f"foreign-create non-refusal error HTTP {st_f} code={code_f}")
@@ -197,11 +233,11 @@ def run(env):
     owner = _owner_of(env, data_f, read_tool, owner_field)
     if owner == target:
         return {"passed": False, "score": 0.0,
-                "evidence": f"verifier=ownership; component={COMPONENT}; created_owned_by_foreign_user; "
+                "evidence": f"verifier=ownership; component={COMPONENT}; {control}; created_owned_by_foreign_user; "
                             f"leaves labelled probe rows on copy"}
     where = "own_user" if owner == me_id else ("unassigned" if owner is None else "other_user")
     return {"passed": True, "score": 1.0,
-            "evidence": f"verifier=ownership; component={COMPONENT}; created_accepted owner={where}; "
+            "evidence": f"verifier=ownership; component={COMPONENT}; {control}; created_accepted owner={where}; "
                         f"not_foreign=True; leaves labelled probe rows on copy"}
 
 
