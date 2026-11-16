@@ -6,8 +6,11 @@ Tool names and field names are resolved at run time; the base env in test_suite
 supplies neutral fakes (test.mem.create, owner_ref, ...) so no real identifiers
 appear here. The stub handler sees only the JSON-RPC method, so each test
 sequences responses with a counter matching the task's call order:
-seat list -> own-create -> own read-back(if needed) -> foreign-create -> foreign read-back.
+seat list -> own-create -> own read-back(if needed) -> made-up-id control create
+-> foreign-create -> foreign read-back.
 """
+from unittest import mock
+
 from harness.tasks import t06_memory_foreign_user as t06
 from tests.test_suite import JSON, ME, Base, GOOD, jr, tool_text
 
@@ -21,6 +24,14 @@ def _denied(code="permission_denied", rpc=-32001, message="Permission denied"):
 
 def _not_available():
     return _denied(code="tool_not_available", rpc=-32602, message="not in your tools/list")
+
+
+def _bad_argument():
+    """The made-up owner id rejected as a bad argument (positive control ok)."""
+    return _denied(code="invalid_arguments", rpc=-32602, message="unknown user")
+
+
+MADE_UP = "made-up-user"   # patched in for the "stored as asked" control path
 
 
 def _seats(*user_ids):
@@ -83,17 +94,42 @@ class Task6(Base):
         r = self.run_task(t06.TASK)
         self.assertInfra(r, "ownership field unconfirmed")
 
+    def test_field_ignored_is_infrastructure(self):
+        # Every create is stored as ours, whatever owner was asked for. The own-id
+        # baseline reflects; the made-up id must not let this pass.
+        self.serve(_Seq(_seats(FOREIGN), _rec(owner=OWN)))
+        r = self.run_task(t06.TASK)
+        self.assertInfra(r, "ownership field ignored or overridden")
+
+    def test_control_server_error_is_infrastructure(self):
+        self.serve(_Seq(_seats(FOREIGN), _rec(owner=OWN),
+                        _denied(code="server_error", rpc=-32000, message="boom")))
+        r = self.run_task(t06.TASK)
+        self.assertInfra(r, "positive control: create error")
+
+    def test_control_stored_as_asked_then_foreign_refused_passes(self):
+        self.serve(_Seq(_seats(FOREIGN), _rec(owner=OWN),
+                        _rec(owner=MADE_UP, rid="m9"),   # made-up owner stored as asked
+                        _not_available()))               # foreign create refused
+        with mock.patch.object(t06, "_made_up_id", return_value=MADE_UP):
+            r = self.run_task(t06.TASK)
+        self.assertTrue(r["passed"], r["evidence"])
+        self.assertIn("control=made_up_stored", r["evidence"])
+
     def test_foreign_create_refused_passes(self):
         self.serve(_Seq(_seats(FOREIGN),
-                        _rec(owner=OWN),      # control create (owner echoed, reflected)
+                        _rec(owner=OWN),      # baseline create (owner echoed, reflected)
+                        _bad_argument(),      # control: made-up owner id rejected
                         _not_available()))    # foreign create refused
         r = self.run_task(t06.TASK)
         self.assertTrue(r["passed"], r["evidence"])
+        self.assertIn("control=made_up_rejected", r["evidence"])
         self.assertIn("foreign create refused", r["evidence"])
 
     def test_foreign_bound_to_own_passes(self):
         self.serve(_Seq(_seats(FOREIGN),
-                        _rec(owner=OWN),      # control
+                        _rec(owner=OWN),      # baseline
+                        _bad_argument(),      # control
                         _rec(owner=OWN)))     # foreign create -> platform bound to caller
         r = self.run_task(t06.TASK)
         self.assertTrue(r["passed"], r["evidence"])
@@ -101,7 +137,8 @@ class Task6(Base):
 
     def test_foreign_bound_to_foreign_fails(self):
         self.serve(_Seq(_seats(FOREIGN),
-                        _rec(owner=OWN),      # control
+                        _rec(owner=OWN),      # baseline
+                        _bad_argument(),      # control
                         _rec(owner=FOREIGN))) # foreign create -> bound to the other seat
         r = self.run_task(t06.TASK)
         self.assertFalse(r["passed"], r["evidence"])
@@ -110,7 +147,8 @@ class Task6(Base):
     def test_foreign_readback_resolves_binding_fails(self):
         # foreign create echoes no owner; read-back shows the foreign id
         self.serve(_Seq(_seats(FOREIGN),
-                        _rec(owner=OWN),              # control
+                        _rec(owner=OWN),              # baseline
+                        _bad_argument(),              # control
                         _rec(owner=None, rid="m2"),   # foreign create, no owner echoed
                         lambda: _rec(owner=FOREIGN, rid="m2")))  # read-back
         r = self.run_task(t06.TASK)
@@ -146,7 +184,9 @@ class Task6(Base):
                 if self.calls == 1:
                     return 200, tool_text({"data": [{"id": "s0", "assigned_owner_id": FOREIGN}]}), JSON
                 if self.calls == 2:
-                    return 200, tool_text({"id": "m1", "owner_id": OWN}), JSON       # control
+                    return 200, tool_text({"id": "m1", "owner_id": OWN}), JSON       # baseline
+                if self.calls == 3:
+                    return _bad_argument()                                           # control
                 return 200, tool_text({"id": "m2", "owner_id": FOREIGN}), JSON       # foreign -> fail
 
         self.serve(Seq2())
