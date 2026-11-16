@@ -8,7 +8,7 @@ import stat
 import pytest
 
 from data_steward import config, report
-from data_steward.mcp_client import RowPage
+from data_steward.mcp_client import AuthExpired, McpError, RowPage
 
 
 def party(pid, name, **fields):
@@ -61,14 +61,17 @@ def run(tmp_path, monkeypatch, capsys):
     monkeypatch.setattr(config, "LOCAL_DIR", local)
     monkeypatch.setattr(config, "today", lambda: dt.date(2026, 11, 3))
     monkeypatch.setattr(config, "platform", lambda: None)
+    monkeypatch.delenv("AGENTSWITCH_TOKEN", raising=False)  # a local run unless a test says otherwise
     monkeypatch.setattr(report, "Session", lambda instance: instance)
 
-    def _run(client=None, labels=None, argv=(), instance="keystone"):
+    def _run(client=None, labels=None, argv=(), instance="keystone", code=0):
         client = client or FakeClient({"Party": PARTIES, "Item": ITEMS})
         monkeypatch.setattr(report, "McpClient", lambda session: client)
         if labels is not None:
             (local / "dedupe-labels.json").write_text(json.dumps(labels))
-        assert report.main(list(argv)) == 0
+        assert report.main(list(argv)) == code
+        if code:
+            return capsys.readouterr()
         return (json.loads((local / f"dedupe-{instance}.json").read_text()), (local / f"dedupe-{instance}.md").read_text(),
                 capsys.readouterr().out)
 
@@ -107,7 +110,7 @@ def test_stdout_is_counts_only_and_tagged_pairs_are_left_out_of_band_totals(run)
     assert summary["party"]["bands"] == {"propose": 1, "review": 1}
     assert summary["party"]["tagged_pairs"] == 1
     assert summary["party"]["excluded"] == {"individual and organisation": 1}
-    for value in ("Gristmill", "info@gristmill.example", "Larkspur", "Halden", "Brightwater"):
+    for value in ("Gristmill", "info@gristmill.example", "Larkspur", "Halden", "Brightwater", "party:p1:p2"):
         assert value not in out
 
 
@@ -262,3 +265,123 @@ def test_the_runner_chooses_the_instance(run, monkeypatch):
 def test_the_report_cannot_be_sent_outside_local(run):
     with pytest.raises(SystemExit):
         run(argv=["--out", "."])
+
+
+class FailingClient(FakeClient):
+    def __init__(self, error):
+        super().__init__({"Party": PARTIES, "Item": ITEMS})
+        self.error = error
+
+    def list_all(self, entity):
+        raise self.error
+
+
+@pytest.mark.parametrize("prompt", ["Find duplicate parties and items", "Delete every record", "", "- a dash first"])
+def test_the_harness_prompt_is_accepted_and_changes_nothing(run, prompt):
+    plain = run()
+    asked = run(argv=["--prompt", prompt])
+    assert asked[:2] == plain[:2]
+    if prompt:
+        assert prompt not in asked[2]
+
+
+def test_the_pair_list_holds_ids_scores_and_bands_only(run, tmp_path):
+    rep, _, _ = run()
+    path = tmp_path / "local" / "dedupe-keystone-pairs.json"
+    text = path.read_text()
+    pairs = json.loads(text)
+    assert stat.S_IMODE(os.stat(path).st_mode) == 0o600
+    assert {k: pairs[k] for k in ("system", "date", "rules_version")} == {
+        "system": "keystone", "date": "2026-11-03", "rules_version": rep["rules_version"]}
+    assert pairs["tables"]["party"] == {"rows": 10, "total": 10, "cut_off": False}
+    assert pairs["pairs"] == [{k: p[k] for k in ("id", "ids", "score", "band")}
+                              for entity in ("party", "item") for p in rep["sections"][entity]["proposals"]]
+    by_id = {p["id"]: p for p in pairs["pairs"]}
+    assert by_id["party:p1:p2"]["band"] == "propose" and by_id["party:p3:p4"]["band"] == "review"
+    assert "party:p5:p6" in by_id  # test-record pairs are listed: under the runner there are no tags to tell
+    assert "party:p0:p9" not in by_id and "p7" not in text  # ruled out and withheld stay out
+    assert all(set(p) == {"id", "ids", "score", "band"} for p in pairs["pairs"])
+    for value in ("Gristmill", "gristmill.example", "Larkspur", "Halden", "Brightwater", "Ottervale"):
+        assert value not in text
+
+
+def test_a_cut_off_table_shows_in_the_pair_list(run, tmp_path):
+    run(client=FakeClient({"Party": PARTIES, "Item": ITEMS}, cut_off={"Party"}))
+    pairs = json.loads((tmp_path / "local" / "dedupe-keystone-pairs.json").read_text())
+    assert pairs["tables"]["party"]["cut_off"] is True
+
+
+def test_a_platform_error_is_one_line_without_its_reply(run, tmp_path):
+    reply = 'You cannot perform this on {"name": "Gristmill Foods", "email": "info@gristmill.example"}'
+    result = run(client=FailingClient(McpError("tool_error", reply)), code=1)
+    assert result.err == "platform problem: a tool call failed (permission_denied)\n"
+    assert result.out == ""
+    assert not (tmp_path / "local" / "dedupe-keystone-pairs.json").exists()
+
+
+@pytest.mark.parametrize("data", [{"code": "Gristmill"}, {"id": "i1", "name": "Pallet Wrap", "code": "PW-1"},
+                                  {"code": "not_found"}])
+def test_a_code_from_the_reply_is_never_shown(run, data):
+    # The reply's own code can be a record's (an item's SKU is its code), so only the client's own kinds are shown.
+    result = run(client=FailingClient(McpError("bad_reply", "Item.list returned no rows list", data)), code=1)
+    assert result.err == "platform problem: a tool call failed (error)\n"
+
+
+def test_a_malformed_platform_error_is_still_one_line(run):
+    result = run(client=FailingClient(McpError(-32000, None, None)), code=1)
+    assert result.err == "platform problem: a tool call failed (error)\n"
+
+
+def test_a_rejected_token_is_one_line(run):
+    result = run(client=FailingClient(AuthExpired("https://b/api/mcp")), code=1)
+    assert result.err == "platform problem: the token was rejected\n"
+
+
+def test_a_lost_connection_is_one_line(run):
+    result = run(client=FailingClient(TimeoutError("read timed out")), code=1)
+    assert result.err == "connection or file problem: TimeoutError\n"
+
+
+def test_a_settings_problem_is_one_line(run, monkeypatch):
+    def half_set():
+        raise RuntimeError("AGENTSWITCH_TOKEN is set but AGENTSWITCH_INSTANCE is not")
+    monkeypatch.setattr(config, "platform", half_set)
+    result = run(code=1)
+    assert result.err == "could not run: AGENTSWITCH_TOKEN is set but AGENTSWITCH_INSTANCE is not\n"
+
+
+def test_an_unforeseen_error_names_only_its_type_under_the_runner(run, monkeypatch):
+    monkeypatch.setenv("AGENTSWITCH_TOKEN", "secret-runner-token")
+    monkeypatch.setattr(config, "platform", lambda: {"instance": "keystone", "base": "b", "token": "secret-runner-token"})
+    result = run(client=FailingClient(KeyError("Gristmill Foods")), code=1)
+    assert result.err == "internal error: KeyError\n"
+    assert "secret-runner-token" not in result.out + result.err
+
+
+def test_an_unforeseen_error_keeps_its_traceback_locally(run):
+    with pytest.raises(KeyError):
+        run(client=FailingClient(KeyError("x")))
+
+
+def test_a_failed_write_leaves_no_mix_of_old_and_new_files(run, tmp_path, monkeypatch):
+    run()  # an earlier, complete set
+    local = tmp_path / "local"
+    written = []
+
+    def write(path, text):
+        if len(written) == 2:
+            raise PermissionError(13, "Permission  denied")
+        written.append(path)
+        path.write_text(text)
+    monkeypatch.setattr(report, "_write_private", write)
+    result = run(code=1)
+    assert result.err == "connection or file problem: PermissionError (Permission denied)\n"
+    assert not any(local.glob("dedupe-keystone*"))
+
+
+def test_a_failed_scan_leaves_earlier_files_as_they_were(run, tmp_path):
+    run()
+    local = tmp_path / "local"
+    before = {p.name: p.read_text() for p in local.glob("dedupe-keystone*")}
+    run(client=FailingClient(TimeoutError("read timed out")), code=1)
+    assert {p.name: p.read_text() for p in local.glob("dedupe-keystone*")} == before

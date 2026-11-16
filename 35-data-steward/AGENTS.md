@@ -46,6 +46,10 @@ Work on a branch in your fork (`origin`) and open a pull request into `theschool
 push to `upstream`, never merge your own pull request. Fill in the pull request template's checklist. Commits are
 the record of the seat's work, so make one per logical change.
 
+Keep pull requests short: the instructor wants small ones to review. One step or task per pull request, not a run
+of them. When the previous pull request is still open, start the next branch from its branch and say in the
+description which pull request it builds on; until that one merges, the new one also shows its commits.
+
 ## Layout
 
 | Path | What it is |
@@ -75,8 +79,14 @@ uv run python -m data_steward.dedupe --instance keystone   # read-only scan; ask
 ## The duplicate report
 
 - `python -m data_steward.dedupe` reads every party and item on one system (the harness runner's, else the one
-  given, else Keystone) and writes `local/dedupe-<instance>.json` and `.md`, owner-only. It always writes to
-  `local/`: the report holds real party data. Standard output is counts only, safe for a pull request description.
+  given, else Keystone) and writes `local/dedupe-<instance>.json`, `.md` and `-pairs.json` (pair ids, record ids,
+  score, band; for a grader), owner-only. It always writes to `local/`: the report holds real party data, and record
+  ids are platform data too. Standard output is counts only, safe for a pull request description; never add ids to it.
+- `--prompt "<request>"`, which the course harness appends, is accepted and ignored: every request gets the same
+  read-only scan until a model reads requests (version 1). A failure exits 1 with one line on standard error. That
+  line never quotes a platform reply or its error code (either can hold record data: an item's SKU is its `code`);
+  under the runner an unforeseen error names only its type, and only a local run shows its traceback. A failed write
+  removes all three files rather than mix old and new; a failed scan leaves earlier files as they were.
 - It reads `local/test-tags.txt` (one confirmed test-run tag per line, the tag first, then where it came from) and
   `local/dedupe-labels.json` (`{"<pair id>": "accepted" | "rejected"}`). It never writes either. Add a tag only when
   a read has confirmed it; never hard-code one in the repository.

@@ -2,9 +2,14 @@
 
     uv run python -m data_steward.dedupe                      # Keystone, or the harness runner's instance
     uv run python -m data_steward.dedupe --instance keystone
+    uv run python -m data_steward.dedupe --prompt "<request>"  # how the course harness runs it; the request is ignored
 
 Writes local/dedupe-<instance>.json (the record of truth) and local/dedupe-<instance>.md (made from it). Both hold
-real party data, which is why they go to the git-ignored local/. Standard output carries counts only.
+real party data, which is why they go to the git-ignored local/. Also writes local/dedupe-<instance>-pairs.json: every
+listed pair as its pair id, the two record ids, score and band, and nothing else about the records. Standard output
+carries counts only. A failure exits 1 with one plain error line on standard error; only a local run (not under the
+harness runner) shows a traceback for an error this command does not expect. A failed scan leaves earlier files as
+they were; a failed write removes all three, so old and new files are never mixed.
 
 Inputs read from local/, never written: test-tags.txt (one confirmed test-run tag per line: the tag is the
 first word, and the rest of the line, if any, says where the read showed it came from) and dedupe-labels.json
@@ -16,12 +21,13 @@ import http.client
 import json
 import os
 import re
+import sys
 import tempfile
 from collections import Counter
 from pathlib import Path
 
 from . import config, dedupe, proposals
-from .mcp_client import McpClient, Session
+from .mcp_client import AuthExpired, McpClient, McpError, Session
 
 TABLES = {"party": "Party", "item": "Item"}
 LABELS = ("accepted", "rejected")
@@ -153,6 +159,19 @@ def summary(report: dict) -> dict:
             **s["counts"],
         }
     return out
+
+
+def pair_list(report: dict) -> dict:
+    """The pairs alone, for a grader: pair id (which names the entity), the two record ids, score and band. No names
+    or other record data. Every listed pair is here, propose and review, test-record pairs included (the runner has no
+    test tags to tell them by), parties first and then items, each by band and then pair id; pairs ruled out are not. The score and the band are both kept: a pair held at review can still score 1.0. Each
+    table says whether it was cut off, so a short list from an incomplete scan is not read as "no more duplicates"."""
+    return {
+        "system": report["system"], "date": report["date"], "rules_version": report["rules_version"],
+        "tables": {entity: s["table"] for entity, s in report["sections"].items()},
+        "pairs": [{k: p[k] for k in ("id", "ids", "score", "band")}
+                  for s in report["sections"].values() for p in s["proposals"]],
+    }
 
 
 _MARKDOWN = re.compile(r"([\\`*_\[\]()!|~#])")
@@ -349,9 +368,52 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--instance", choices=sorted(config.INSTANCES),
                         help="default: the harness runner's instance, else keystone")
+    # The course harness appends --prompt "<request>" to the command. There is no model yet, so every request gets
+    # the same read-only duplicate scan; the text is neither printed nor saved.
+    parser.add_argument("--prompt", help="the harness's request; ignored for now")
     args = parser.parse_args(argv)
+    try:
+        return _run(args.instance)
+    except Exception as e:
+        line = _error_line(e)
+        if line is None:
+            if not config.on_platform():
+                raise  # a local run keeps the traceback, for debugging
+            # Under the harness a traceback's last line can quote a record value: name the error type only.
+            line = f"internal error: {type(e).__name__}"
+        print(line, file=sys.stderr)
+        return 1
+
+
+# The kinds McpError works out itself. Any other kind is the reply's own "code" field, which can be a record's (an
+# item's SKU is its "code"), so it is never shown.
+_KNOWN_KINDS = {"permission_denied", "unknown_tool"}
+
+
+def _error_line(e: Exception) -> str | None:
+    """One line for the harness to show as the reason (its "last error line"), which may be shared beyond this seat.
+    A platform error's own message can quote the platform's reply, record data included, so it is never shown, and its
+    kind only when it is one of _KNOWN_KINDS. RuntimeError messages are printed: the package's own settings and login
+    messages name no token, password or login name. None means unforeseen."""
+    if isinstance(e, McpError):
+        try:
+            kind = e.kind if e.kind in _KNOWN_KINDS else "error"
+        except Exception:  # a malformed reply (a message that is not text) must not end in a traceback that quotes it
+            kind = "error"
+        return f"platform problem: a tool call failed ({kind})"
+    if isinstance(e, AuthExpired):
+        return "platform problem: the token was rejected"
+    if isinstance(e, (OSError, http.client.HTTPException)):
+        reason = getattr(e, "strerror", None)
+        return f"connection or file problem: {type(e).__name__}" + (f" ({' '.join(str(reason).split())})" if reason else "")
+    if isinstance(e, RuntimeError):
+        return f"could not run: {' '.join(str(e).split())}"
+    return None
+
+
+def _run(instance: str | None) -> int:
     platform = config.platform()
-    instance = args.instance or (platform["instance"] if platform else "keystone")
+    instance = instance or (platform["instance"] if platform else "keystone")
     test_tags = load_test_tags(config.LOCAL_DIR / "test-tags.txt")
     labels = load_labels(config.LOCAL_DIR / "dedupe-labels.json")
 
@@ -359,11 +421,24 @@ def main(argv: list[str] | None = None) -> int:
     sections = {entity: scan(client, entity, tuple(test_tags)) for entity in TABLES}
     report = build_report(instance, config.today().isoformat(), sections, labels, test_tags)
 
-    # Always local/, which is git-ignored: the report holds real party data and the repository is public.
-    config.LOCAL_DIR.mkdir(exist_ok=True)
+    # Always local/, which is git-ignored: the report holds real party data and the repository is public. Record ids
+    # are platform data too, so the pair list goes there as well and never to standard output.
     stem = config.LOCAL_DIR / f"dedupe-{instance}"
-    _write_private(stem.with_suffix(".json"), json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
-    _write_private(stem.with_suffix(".md"), render_markdown(report))
+    pairs = config.LOCAL_DIR / f"dedupe-{instance}-pairs.json"
+    files = {  # every text made before the first write, so a failure while making one changes no file
+        stem.with_suffix(".json"): json.dumps(report, indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+        stem.with_suffix(".md"): render_markdown(report),
+        pairs: json.dumps(pair_list(report), indent=2, sort_keys=True, ensure_ascii=False) + "\n",
+    }
+    config.LOCAL_DIR.mkdir(exist_ok=True)
+    try:
+        for path, text in files.items():
+            _write_private(path, text)
+    except BaseException:
+        # A partly written set would put new files beside old ones, which a reader cannot tell apart: remove all three.
+        for path in files:
+            path.unlink(missing_ok=True)
+        raise
     print(json.dumps(summary(report), indent=2, sort_keys=True))
-    print(f"report: {stem.with_suffix('.json')} and {stem.with_suffix('.md')}")
+    print(f"report: {stem.with_suffix('.json')} and {stem.with_suffix('.md')}; pairs: {pairs}")
     return 0
