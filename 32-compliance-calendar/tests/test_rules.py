@@ -161,13 +161,48 @@ class ReadOnly(unittest.TestCase):
             self.fail("a write to /api/Contract was not refused")
 
     def test_login_is_the_only_path_allowed_a_body(self):
-        # Not called over the network - this asserts the guard lets it past,
-        # which the refusal tests above prove it does for nothing else.
-        import inspect
-        from compliance_calendar import client as mod
-        src = inspect.getsource(mod._send if hasattr(mod, "_send")
-                                else mod.Client._send)
-        self.assertIn("LOGIN_PATH", src)
+        """The login must get PAST the guard, not merely be named in it.
+
+        This used to assert that the source of _send mentions LOGIN_PATH.
+        Raised as a non-blocking note on PR #22 and the note was right: a
+        test that reads source proves the code was written, not that it
+        works. Inverting the guard to `if payload is not None:` refuses the
+        login too, yet LOGIN_PATH still appears in the error message, so the
+        old test passed while the client was broken.
+
+        The network call is replaced, so nothing leaves the machine. What is
+        asserted is that _send let the login through and built a POST
+        carrying a body - the exact thing refused on every other path.
+        """
+        import io
+        import urllib.request
+
+        captured = {}
+
+        class FakeResponse(io.BytesIO):
+            status = 200
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        def fake_urlopen(req, timeout=None):
+            captured["method"] = req.get_method()
+            captured["url"] = req.full_url
+            captured["body"] = req.data
+            return FakeResponse(b'{"token": "not-a-real-token"}')
+
+        real = urllib.request.urlopen
+        urllib.request.urlopen = fake_urlopen
+        try:
+            status, _ = self.client()._send(
+                LOGIN_PATH, {"email": "a", "password": "b"})
+        finally:
+            urllib.request.urlopen = real
+
+        self.assertEqual(status, 200,
+                         "the login was not allowed through the guard")
+        self.assertEqual(captured["method"], "POST")
+        self.assertIsNotNone(captured["body"], "the login must carry a body")
+        self.assertTrue(captured["url"].endswith(LOGIN_PATH))
         self.assertEqual(LOGIN_PATH, "/api/auth/login")
 
     def test_send_is_the_only_http_in_the_package(self):
